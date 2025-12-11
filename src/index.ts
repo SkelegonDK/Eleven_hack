@@ -1,6 +1,6 @@
 import { serve } from "bun";
 import index from "./index.html";
-import { createAgent, getSignedUrl } from "./api/agents";
+import { getAgentForMode, getSignedUrl } from "./api/agents";
 import { 
   uploadDocument, 
   getDocument, 
@@ -14,17 +14,17 @@ const server = serve({
     // Serve index.html for all unmatched routes.
     "/*": index,
 
-    // Create a new conversational agent
+    // Get agent ID for the selected mode
     "/api/agents": {
       async POST(req) {
         try {
           const body = await req.json();
-          const result = await createAgent(body);
+          const result = await getAgentForMode(body);
           return Response.json(result);
         } catch (error) {
-          console.error("Error creating agent:", error);
+          console.error("Error getting agent:", error);
           return Response.json(
-            { error: error instanceof Error ? error.message : "Failed to create agent" },
+            { error: error instanceof Error ? error.message : "Failed to get agent" },
             { status: 500 }
           );
         }
