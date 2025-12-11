@@ -91,8 +91,8 @@ export function LandingPage() {
       </header>
 
       {/* Main content - scrollable */}
-      <main className="relative z-10 flex-1 overflow-y-auto scrollbar-hide px-6 pb-40">
-        <div className="space-y-6 max-w-md mx-auto">
+      <main className="relative z-10 flex-1 overflow-y-auto scrollbar-hide px-6 pb-48">
+        <div className="space-y-5 max-w-md mx-auto">
           {/* Subject selector */}
           <section>
             <SubjectSelector
