@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
-import { Sparkles, GraduationCap, Waves } from "lucide-react";
+import { Sparkles, GraduationCap, Waves, Gift } from "lucide-react";
 
-export type ConversationMode = "fun" | "edu" | "deep";
+export type ConversationMode = "fun" | "edu" | "deep" | "santa";
 
 interface ModeSelectorProps {
   selected: ConversationMode;
@@ -44,6 +44,18 @@ const modes = [
     bgColor: "bg-deep/20",
     borderColor: "border-deep/50",
     activeColor: "bg-deep text-deep-foreground",
+  },
+  {
+    id: "santa" as const,
+    name: "SANTA",
+    description: "Ho ho ho!",
+    icon: Gift,
+    gradient: "from-red-500 via-red-600 to-green-600",
+    glow: "glow-santa",
+    textGradient: "text-gradient-santa",
+    bgColor: "bg-santa/20",
+    borderColor: "border-santa/50",
+    activeColor: "bg-santa text-santa-foreground",
   },
 ];
 

@@ -31,12 +31,19 @@ const modeStyles = {
     text: "text-violet-400",
     bg: "bg-violet-500",
   },
+  santa: {
+    gradient: "from-red-500/20 via-red-600/20 to-green-600/20",
+    border: "border-red-500/30",
+    text: "text-red-400",
+    bg: "bg-red-500",
+  },
 };
 
 const modeNames = {
   fun: "FUN",
   edu: "EDU",
   deep: "DEEP",
+  santa: "SANTA",
 };
 
 export function ConversationView({ 
