@@ -43,16 +43,16 @@ export function PlayButton({
       {isActive && (
         <>
           <div className={cn(
-            "absolute w-32 h-32 rounded-full animate-ripple",
+            "absolute w-40 h-40 rounded-full animate-ripple",
             styles.pulseColor
           )} />
           <div className={cn(
-            "absolute w-32 h-32 rounded-full animate-ripple",
+            "absolute w-40 h-40 rounded-full animate-ripple",
             styles.pulseColor,
             "[animation-delay:0.5s]"
           )} />
           <div className={cn(
-            "absolute w-32 h-32 rounded-full animate-ripple",
+            "absolute w-40 h-40 rounded-full animate-ripple",
             styles.pulseColor,
             "[animation-delay:1s]"
           )} />
@@ -61,7 +61,7 @@ export function PlayButton({
 
       {/* Glow background */}
       <div className={cn(
-        "absolute w-28 h-28 rounded-full blur-2xl transition-opacity duration-500",
+        "absolute w-36 h-36 rounded-full blur-2xl transition-opacity duration-500",
         `bg-gradient-to-br ${styles.gradient}`,
         isActive ? "opacity-60" : "opacity-30"
       )} />
@@ -72,7 +72,7 @@ export function PlayButton({
         disabled={disabled || isLoading}
         className={cn(
           "relative z-10",
-          "w-24 h-24 rounded-full",
+          "w-32 h-32 rounded-full",
           "flex items-center justify-center",
           "bg-gradient-to-br",
           styles.gradient,
@@ -89,11 +89,11 @@ export function PlayButton({
         
         {/* Icon */}
         {isLoading ? (
-          <Loader2 className="relative w-10 h-10 text-white animate-spin" />
+          <Loader2 className="relative w-12 h-12 text-white animate-spin" />
         ) : isActive ? (
-          <Mic className="relative w-10 h-10 text-white animate-pulse" />
+          <Mic className="relative w-12 h-12 text-white animate-pulse" />
         ) : (
-          <Play className="relative w-10 h-10 text-white ml-1" />
+          <Play className="relative w-12 h-12 text-white ml-1" />
         )}
       </button>
 

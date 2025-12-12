@@ -2,7 +2,6 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { SubjectSelector } from "./SubjectSelector";
 import { ModeSelector, type ConversationMode } from "./ModeSelector";
-import { DocumentUpload } from "./DocumentUpload";
 import { PlayButton } from "./PlayButton";
 import { ConversationView } from "./ConversationView";
 import { Headphones } from "lucide-react";
@@ -102,11 +101,6 @@ export function LandingPage() {
             />
           </section>
 
-          {/* Document upload */}
-          <section>
-            <DocumentUpload />
-          </section>
-
           {/* Mode selector */}
           <section>
             <ModeSelector
@@ -123,7 +117,7 @@ export function LandingPage() {
         <div className="absolute inset-x-0 -top-20 h-20 bg-gradient-to-t from-background to-transparent pointer-events-none" />
         
         {/* Content */}
-        <div className="relative bg-background/80 backdrop-blur-xl border-t border-border/50 px-6 py-6 pb-10">
+        <div className="relative bg-background/80 backdrop-blur-xl px-6 py-8 pb-10">
           <div className="flex flex-col items-center gap-4">
             {/* Validation message */}
             {!canStart && (

@@ -9,8 +9,10 @@ import {
   Heart, 
   Palette,
   Pin,
-  Check
+  Check,
+  Upload
 } from "lucide-react";
+import { UploadDialog } from "./UploadDialog";
 
 export interface Subject {
   id: string;
@@ -41,8 +43,15 @@ export function SubjectSelector({
   maxSelections = 3 
 }: SubjectSelectorProps) {
   const [pinnedSubject, setPinnedSubject] = useState<string | null>(null);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 
   const toggleSubject = (subjectId: string) => {
+    // Special handling for upload subject
+    if (subjectId === "upload") {
+      setIsUploadDialogOpen(true);
+      return;
+    }
+
     if (selected.includes(subjectId)) {
       // Deselect
       onSelectionChange(selected.filter(id => id !== subjectId));
@@ -83,6 +92,14 @@ export function SubjectSelector({
     if (!aSelected && bSelected) return 1;
     return 0;
   });
+
+  // Add upload subject at the end
+  const uploadSubject: Subject = {
+    id: "upload",
+    name: "Upload Document",
+    icon: <Upload className="w-5 h-5" />,
+    color: "from-indigo-500 to-purple-600",
+  };
 
   return (
     <div className="w-full">
@@ -161,6 +178,29 @@ export function SubjectSelector({
             </button>
           );
         })}
+        
+        {/* Upload Document button */}
+        <button
+          onClick={() => toggleSubject(uploadSubject.id)}
+          className={cn(
+            "relative group flex items-center gap-2.5 p-3 rounded-xl",
+            "border-2 transition-all duration-300",
+            "font-display text-sm font-medium text-left",
+            "border-border/50 bg-card/50 hover:border-border hover:bg-card/80"
+          )}
+        >
+          {/* Icon */}
+          <div className={cn(
+            "relative flex-shrink-0 p-2 rounded-lg bg-gradient-to-br",
+            uploadSubject.color,
+            "text-white shadow-lg"
+          )}>
+            {uploadSubject.icon}
+          </div>
+          
+          {/* Name */}
+          <span className="relative flex-1 truncate">{uploadSubject.name}</span>
+        </button>
       </div>
       
       {pinnedSubject && (
@@ -168,6 +208,11 @@ export function SubjectSelector({
           Pinned topic will be the main focus of the conversation
         </p>
       )}
+
+      <UploadDialog
+        open={isUploadDialogOpen}
+        onOpenChange={setIsUploadDialogOpen}
+      />
     </div>
   );
 }
