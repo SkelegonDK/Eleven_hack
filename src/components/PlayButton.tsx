@@ -70,6 +70,13 @@ export function PlayButton({
       <button
         onClick={onClick}
         disabled={disabled || isLoading}
+        aria-label={
+          isLoading 
+            ? "Connecting..." 
+            : isActive 
+            ? "End conversation" 
+            : "Start conversation"
+        }
         className={cn(
           "relative z-10",
           "w-32 h-32 rounded-full",

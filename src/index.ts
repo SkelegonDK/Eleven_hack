@@ -9,7 +9,12 @@ import {
   parseDocumentContent 
 } from "./api/knowledgebase";
 
+const port = Number(process.env.PORT ?? 3000);
+const hostname = process.env.HOST ?? "127.0.0.1";
+
 const server = serve({
+  port,
+  hostname,
   routes: {
     // Serve index.html for all unmatched routes.
     "/*": index,

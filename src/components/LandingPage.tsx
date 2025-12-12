@@ -4,12 +4,14 @@ import { SubjectSelector } from "./SubjectSelector";
 import { ModeSelector, type ConversationMode } from "./ModeSelector";
 import { PlayButton } from "./PlayButton";
 import { ConversationView } from "./ConversationView";
-import { Headphones } from "lucide-react";
+import { Button } from "./ui/button";
+import { Headphones, AlertCircle } from "lucide-react";
 
 export function LandingPage() {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [selectedMode, setSelectedMode] = useState<ConversationMode>("edu");
   const [isLoading, setIsLoading] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const [showConversation, setShowConversation] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
 
@@ -18,6 +20,7 @@ export function LandingPage() {
   const handleStart = async () => {
     if (!canStart) return;
     
+    setStartError(null);
     setIsLoading(true);
     
     try {
@@ -32,7 +35,8 @@ export function LandingPage() {
       });
       
       if (!response.ok) {
-        throw new Error("Failed to create agent");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to start conversation");
       }
       
       const data = await response.json();
@@ -40,6 +44,7 @@ export function LandingPage() {
       setShowConversation(true);
     } catch (error) {
       console.error("Failed to start conversation:", error);
+      setStartError(error instanceof Error ? error.message : "Failed to start conversation");
     } finally {
       setIsLoading(false);
     }
@@ -124,6 +129,25 @@ export function LandingPage() {
               <p className="font-mono text-xs text-muted-foreground">
                 Select at least one subject to start
               </p>
+            )}
+            
+            {/* Error message */}
+            {startError && (
+              <div className="flex flex-col items-center gap-2 w-full max-w-md">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
+                  <AlertCircle className="w-4 h-4" />
+                  <p className="font-mono text-xs">{startError}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleStart}
+                  disabled={isLoading || !canStart}
+                  className="font-mono text-xs"
+                >
+                  Retry
+                </Button>
+              </div>
             )}
             
             {/* Play button */}

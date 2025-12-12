@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "bun --hot src/index.ts",
     "start": "NODE_ENV=production bun src/index.ts",
-    "build": "bun run build.ts"
+    "build": "bun run build.ts",
+    "test:e2e": "bunx playwright test",
+    "test:e2e:ui": "bunx playwright test --ui",
+    "test:e2e:install": "bunx playwright install --with-deps"
   },
   "dependencies": {
     "@ai-sdk/react": "^2.0.112",
@@ -25,6 +28,7 @@
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/bun": "latest",

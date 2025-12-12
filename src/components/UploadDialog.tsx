@@ -62,6 +62,8 @@ export function UploadDialog({
       const file = fileArray[i];
       const doc = newDocs[i];
 
+      if (!file || !doc) continue;
+
       try {
         const formData = new FormData();
         formData.append("file", file);
@@ -225,7 +227,9 @@ export function UploadDialog({
                       {doc.name}
                     </p>
                     <p className="font-mono text-[10px] text-muted-foreground">
-                      {formatFileSize(doc.size)}
+                      {doc.status === "error" 
+                        ? "Upload failed" 
+                        : formatFileSize(doc.size)}
                     </p>
                   </div>
 
@@ -234,6 +238,7 @@ export function UploadDialog({
                       e.stopPropagation();
                       removeDocument(doc.id);
                     }}
+                    aria-label={`Remove ${doc.name}`}
                     className={cn(
                       "p-1 rounded-md",
                       "text-muted-foreground hover:text-destructive",
@@ -251,3 +256,4 @@ export function UploadDialog({
     </Dialog>
   );
 }
+
