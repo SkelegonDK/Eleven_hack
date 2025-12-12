@@ -26,11 +26,6 @@ const modeStyles = {
     glow: "shadow-[0_0_60px_rgba(139,92,246,0.5)]",
     pulseColor: "bg-violet-500/30",
   },
-  santa: {
-    gradient: "from-red-500 via-red-600 to-green-600",
-    glow: "shadow-[0_0_60px_rgba(220,38,38,0.5)]",
-    pulseColor: "bg-red-500/30",
-  },
 };
 
 export function PlayButton({ 
