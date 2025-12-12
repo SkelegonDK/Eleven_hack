@@ -75,10 +75,10 @@ test.describe("Start Conversation Error Handling", () => {
     await page.getByRole("button", { name: /retry/i }).click();
 
     // Verify loading state during retry
-    await expect(page.getByText("Connecting...")).toBeVisible();
+    await expect(page.getByText("Connecting...")).toBeVisible({ timeout: 1000 });
 
-    // Wait for successful navigation
-    await expect(page.getByText(/^(EDU|FUN|DEEP)$/)).toBeVisible({ timeout: 2000 });
+    // Wait for successful navigation (give more time for webkit)
+    await expect(page.getByTestId("conversation-mode-badge")).toBeVisible({ timeout: 3000 });
   });
 
   test("should clear error when retrying", async ({ page }) => {

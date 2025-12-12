@@ -1,6 +1,10 @@
 import { test, expect } from "@playwright/test";
 import { setupApiMocks, mockDocumentsDeleteApi } from "./helpers/api-mocks";
-import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 test.describe("Upload Dialog Flow", () => {
   test.beforeEach(async ({ page }) => {
@@ -27,13 +31,10 @@ test.describe("Upload Dialog Flow", () => {
     await page.getByRole("button", { name: /upload document/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
 
-    // Create a test file
-    const testFilePath = path.join(__dirname, "fixtures", "test-document.txt");
-    
     // Set up file input
     const fileInput = page.locator('input[type="file"]');
     
-    // Upload file
+    // Upload file (using buffer directly, no need for file path)
     await fileInput.setInputFiles({
       name: "test-document.txt",
       mimeType: "text/plain",
@@ -62,11 +63,16 @@ test.describe("Upload Dialog Flow", () => {
     });
 
     // Wait for success state (after mock delay)
-    await expect(page.getByText("test-success.txt")).toBeVisible();
+    await expect(page.getByText("test-success.txt")).toBeVisible({ timeout: 2000 });
     
-    // Check for success icon (CheckCircle2)
-    const successIcon = page.locator('[class*="text-green-500"]').first();
-    await expect(successIcon).toBeVisible({ timeout: 1500 });
+    // Check for success state - verify the file shows file size (not "Upload failed")
+    // Success state shows file size in the second <p> tag below the filename
+    // Look for text that matches file size pattern (e.g., "12 B", "1.2 KB")
+    const fileRow = page.locator('text=test-success.txt').locator('..').locator('..');
+    // The file size should be visible and not be "Upload failed"
+    await expect(fileRow.getByText(/Upload failed/)).not.toBeVisible();
+    // Verify file size text is shown (any text with B, KB, or MB)
+    await expect(fileRow.getByText(/\d+\.?\d*\s*(B|KB|MB)/)).toBeVisible({ timeout: 2000 });
   });
 
   test("should remove document when clicking remove button", async ({

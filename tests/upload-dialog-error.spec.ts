@@ -99,8 +99,10 @@ test.describe("Upload Dialog Error Handling", () => {
       buffer: Buffer.from("Error"),
     });
 
-    // Wait for error
-    await expect(page.getByText("Upload failed")).toBeVisible({ timeout: 1500 });
+    // Wait for error - the error text appears below the file name
+    // Wait for the file to appear first, then check for error text
+    await expect(page.getByText("persistent-error.txt")).toBeVisible({ timeout: 1000 });
+    await expect(page.getByText("Upload failed")).toBeVisible({ timeout: 2000 });
 
     // Error should persist
     await expect(page.getByText("Upload failed")).toBeVisible();

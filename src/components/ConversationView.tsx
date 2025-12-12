@@ -141,7 +141,9 @@ export function ConversationView({
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between p-4">
         <div className="flex items-center gap-3">
-          <div className={cn(
+          <div 
+            data-testid="conversation-mode-badge"
+            className={cn(
             "px-3 py-1 rounded-full text-xs font-bold font-mono",
             styles.bg,
             "text-white"

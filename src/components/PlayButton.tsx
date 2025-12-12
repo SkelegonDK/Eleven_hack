@@ -70,6 +70,7 @@ export function PlayButton({
       <button
         onClick={onClick}
         disabled={disabled || isLoading}
+        data-testid="play-button"
         aria-label={
           isLoading 
             ? "Connecting..." 

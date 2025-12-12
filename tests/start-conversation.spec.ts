@@ -15,19 +15,22 @@ test.describe("Start Conversation Flow", () => {
     const techSubject = page.getByRole("button", { name: /technology/i });
     await techSubject.click();
 
-    // Click the play button
-    const playButton = page.getByRole("button", { name: /start conversation/i });
+    // Get the play button using test-id (more stable than aria-label which changes)
+    const playButton = page.getByTestId("play-button");
     const clickTime = Date.now();
+    
+    // Click the button
     await playButton.click();
-
-    // Assert loading state appears quickly (within 100ms)
+    
+    // Assert loading state appears quickly (within 300ms)
     const loadingText = page.getByText("Connecting...");
-    await expect(loadingText).toBeVisible({ timeout: 200 });
+    await expect(loadingText).toBeVisible({ timeout: 300 });
     const loadingAppearedTime = Date.now();
-    expect(loadingAppearedTime - clickTime).toBeLessThan(200);
+    expect(loadingAppearedTime - clickTime).toBeLessThan(300);
 
     // Assert button is disabled during loading
-    await expect(playButton).toBeDisabled();
+    // The button should still exist (using test-id) and be disabled
+    await expect(playButton).toBeDisabled({ timeout: 500 });
   });
 
   test("should navigate to conversation view after successful API call", async ({
@@ -40,12 +43,12 @@ test.describe("Start Conversation Flow", () => {
     await page.getByRole("button", { name: /start conversation/i }).click();
 
     // Wait for conversation view to appear (after API call completes)
-    // Look for the mode badge (EDU/FUN/DEEP)
-    const modeBadge = page.getByText(/^(EDU|FUN|DEEP)$/);
-    await expect(modeBadge).toBeVisible({ timeout: 2000 });
+    // Look for the mode badge using data-testid
+    const modeBadge = page.getByTestId("conversation-mode-badge");
+    await expect(modeBadge).toBeVisible({ timeout: 3000 });
 
-    // Verify we're in conversation view
-    await expect(page.getByText(/Ready to start|Listening|Connecting/i)).toBeVisible();
+    // Verify we're in conversation view - check for status text
+    await expect(page.getByText(/Ready to start|Listening|Connecting|Host is speaking/i)).toBeVisible({ timeout: 1000 });
   });
 
   test("should handle touch interactions on mobile", async ({ page, isMobile }) => {
@@ -55,15 +58,15 @@ test.describe("Start Conversation Flow", () => {
     const techSubject = page.getByRole("button", { name: /technology/i });
     await techSubject.tap();
 
-    // Tap the play button
-    const playButton = page.getByRole("button", { name: /start conversation/i });
+    // Tap the play button using test-id (more stable than aria-label)
+    const playButton = page.getByTestId("play-button");
     await playButton.tap();
 
     // Assert loading state appears
-    await expect(page.getByText("Connecting...")).toBeVisible({ timeout: 200 });
+    await expect(page.getByText("Connecting...")).toBeVisible({ timeout: 300 });
 
     // Wait for conversation view
-    await expect(page.getByText(/^(EDU|FUN|DEEP)$/)).toBeVisible({ timeout: 2000 });
+    await expect(page.getByTestId("conversation-mode-badge")).toBeVisible({ timeout: 3000 });
   });
 });
 

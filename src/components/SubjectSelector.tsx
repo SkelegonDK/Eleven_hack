@@ -161,19 +161,35 @@ export function SubjectSelector({
               
               {/* Pin button */}
               {isSelected && (
-                <button
-                  onClick={(e) => togglePin(e, subject.id)}
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePin(e as any, subject.id);
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                   className={cn(
-                    "absolute -top-1.5 -right-1.5 p-1 rounded-full",
+                    "absolute -top-1.5 -right-1.5 p-1 rounded-full cursor-pointer",
                     "bg-background border border-border shadow-md",
                     "transition-all duration-200",
                     isPinned 
                       ? "text-primary rotate-45" 
                       : "text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100"
                   )}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${isPinned ? 'Unpin' : 'Pin'} ${subject.name}`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      togglePin(e as any, subject.id);
+                    }
+                  }}
                 >
                   <Pin className="w-3 h-3" />
-                </button>
+                </div>
               )}
             </button>
           );
