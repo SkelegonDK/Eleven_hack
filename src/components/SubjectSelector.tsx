@@ -117,51 +117,52 @@ export function SubjectSelector({
           const isDisabled = !isSelected && selected.length >= maxSelections;
           
           return (
-            <button
-              key={subject.id}
-              onClick={() => !isDisabled && toggleSubject(subject.id)}
-              disabled={isDisabled}
-              className={cn(
-                "relative group flex items-center gap-2.5 p-3 rounded-xl",
-                "border-2 transition-all duration-300",
-                "font-display text-sm font-medium text-left",
-                isSelected 
-                  ? "border-primary/60 bg-primary/10" 
-                  : "border-border/50 bg-card/50 hover:border-border hover:bg-card/80",
-                isDisabled && "opacity-40 cursor-not-allowed",
-                isPinned && "ring-2 ring-primary/40 ring-offset-2 ring-offset-background"
-              )}
-            >
-              {/* Gradient background on selection */}
-              {isSelected && (
+            <div key={subject.id} className="relative group">
+              <button
+                onClick={() => !isDisabled && toggleSubject(subject.id)}
+                disabled={isDisabled}
+                className={cn(
+                  "relative flex items-center gap-2.5 p-3 rounded-xl w-full",
+                  "border-2 transition-all duration-300",
+                  "font-display text-sm font-medium text-left",
+                  isSelected 
+                    ? "border-primary/60 bg-primary/10" 
+                    : "border-border/50 bg-card/50 hover:border-border hover:bg-card/80",
+                  isDisabled && "opacity-40 cursor-not-allowed",
+                  isPinned && "ring-2 ring-primary/40 ring-offset-2 ring-offset-background"
+                )}
+              >
+                {/* Gradient background on selection */}
+                {isSelected && (
+                  <div className={cn(
+                    "absolute inset-0 rounded-xl opacity-20 bg-linear-to-br",
+                    subject.color
+                  )} />
+                )}
+                
+                {/* Icon */}
                 <div className={cn(
-                  "absolute inset-0 rounded-xl opacity-20 bg-gradient-to-br",
-                  subject.color
-                )} />
-              )}
-              
-              {/* Icon */}
-              <div className={cn(
-                "relative flex-shrink-0 p-2 rounded-lg bg-gradient-to-br",
-                subject.color,
-                "text-white shadow-lg"
-              )}>
-                {subject.icon}
-              </div>
-              
-              {/* Name */}
-              <span className="relative flex-1 truncate">{subject.name}</span>
-              
-              {/* Selection indicator */}
-              {isSelected && (
-                <div className="relative flex-shrink-0">
-                  <Check className="w-4 h-4 text-primary" />
+                  "relative shrink-0 p-2 rounded-lg bg-linear-to-br",
+                  subject.color,
+                  "text-white shadow-lg"
+                )}>
+                  {subject.icon}
                 </div>
-              )}
+                
+                {/* Name */}
+                <span className="relative flex-1 truncate">{subject.name}</span>
+                
+                {/* Selection indicator */}
+                {isSelected && (
+                  <div className="relative shrink-0">
+                    <Check className="w-4 h-4 text-primary" />
+                  </div>
+                )}
+              </button>
               
-              {/* Pin button */}
+              {/* Pin button - outside the button to avoid nesting */}
               {isSelected && (
-                <div
+                <button
                   onClick={(e) => {
                     e.stopPropagation();
                     togglePin(e as any, subject.id);
@@ -171,15 +172,13 @@ export function SubjectSelector({
                     e.stopPropagation();
                   }}
                   className={cn(
-                    "absolute -top-1.5 -right-1.5 p-1 rounded-full cursor-pointer",
+                    "absolute -top-1.5 -right-1.5 p-1 rounded-full",
                     "bg-background border border-border shadow-md",
                     "transition-all duration-200",
                     isPinned 
-                      ? "text-primary rotate-45" 
+                      ? "text-primary rotate-45 opacity-100" 
                       : "text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100"
                   )}
-                  role="button"
-                  tabIndex={0}
                   aria-label={`${isPinned ? 'Unpin' : 'Pin'} ${subject.name}`}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -189,9 +188,9 @@ export function SubjectSelector({
                   }}
                 >
                   <Pin className="w-3 h-3" />
-                </div>
+                </button>
               )}
-            </button>
+            </div>
           );
         })}
         
@@ -207,7 +206,7 @@ export function SubjectSelector({
         >
           {/* Icon */}
           <div className={cn(
-            "relative flex-shrink-0 p-2 rounded-lg bg-gradient-to-br",
+            "relative shrink-0 p-2 rounded-lg bg-linear-to-br",
             uploadSubject.color,
             "text-white shadow-lg"
           )}>

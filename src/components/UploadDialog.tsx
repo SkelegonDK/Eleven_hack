@@ -174,7 +174,7 @@ export function UploadDialog({
             <div
               className={cn(
                 "p-4 rounded-full",
-                "bg-gradient-to-br from-primary/20 to-accent/20",
+                "bg-linear-to-br from-primary/20 to-accent/20",
                 "transition-transform duration-300",
                 isDragging && "scale-110"
               )}
