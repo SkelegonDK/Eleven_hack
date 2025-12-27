@@ -10,8 +10,9 @@ import { createRoot } from "react-dom/client";
 import { ClerkProvider } from "@clerk/clerk-react";
 import { App } from "./App";
 
-// Get the Clerk key from the injected window variable
-const PUBLISHABLE_KEY = (window as any).__CLERK_PUBLISHABLE_KEY__;
+// Get the Clerk key using the official Vite pattern
+// See: https://clerk.com/docs/quickstarts/react
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!PUBLISHABLE_KEY) {
   throw new Error("Missing Clerk Publishable Key");
 }
@@ -19,7 +20,12 @@ if (!PUBLISHABLE_KEY) {
 const elem = document.getElementById("root")!;
 const app = (
   <StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+    <ClerkProvider 
+      publishableKey={PUBLISHABLE_KEY} 
+      afterSignOutUrl="/"
+      signInFallbackRedirectUrl="/"
+      signUpFallbackRedirectUrl="/"
+    >
       <App />
     </ClerkProvider>
   </StrictMode>

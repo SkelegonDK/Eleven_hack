@@ -12,27 +12,22 @@ import {
 const port = Number(process.env.PORT ?? 3000);
 const hostname = process.env.HOST ?? "127.0.0.1";
 
-// Get the Clerk publishable key (supports both VITE_ and BUN_PUBLIC_ prefixes)
-const clerkPublishableKey = process.env.BUN_PUBLIC_CLERK_PUBLISHABLE_KEY;
+// Get the Clerk publishable key (official Clerk pattern uses VITE_ prefix)
+const clerkPublishableKey = process.env.VITE_CLERK_PUBLISHABLE_KEY || "";
+
+if (!clerkPublishableKey) {
+  console.warn("Warning: Clerk publishable key not found. Set VITE_CLERK_PUBLISHABLE_KEY in your .env.local or .env file.");
+}
+
+// Cache the HTML template at startup
+const htmlFile = Bun.file("./src/index.html");
+const htmlTemplate = await htmlFile.text();
 
 const server = serve({
   port,
   hostname,
   routes: {
-    // Serve index.html for all unmatched routes with injected env vars
-    "/*": async () => {
-      const htmlFile = Bun.file("./src/index.html");
-      const htmlContent = await htmlFile.text();
-      // Inject the Clerk key into the HTML before the frontend script
-      const injectedHtml = htmlContent.replace(
-        '<script type="module"',
-        `<script>window.__CLERK_PUBLISHABLE_KEY__ = ${JSON.stringify(clerkPublishableKey)};</script><script type="module"`
-      );
-      return new Response(injectedHtml, {
-        headers: { "Content-Type": "text/html" },
-      });
-    },
-
+    // API routes must be defined BEFORE the catch-all route
     // Get agent ID for the selected mode
     "/api/agents": {
       async POST(req) {
@@ -154,6 +149,85 @@ const server = serve({
           );
         }
       },
+    },
+
+    // Handle TypeScript/TSX files - Bun needs to transpile these
+    "/frontend.tsx": async () => {
+      try {
+        // Use Bun's transpiler to convert TSX to JavaScript
+        const file = Bun.file("./src/frontend.tsx");
+        if (!(await file.exists())) {
+          return new Response("File not found", { status: 404 });
+        }
+        
+        // Transpile the file with environment variable injection
+        const result = await Bun.build({
+          entrypoints: ["./src/frontend.tsx"],
+          target: "browser",
+          format: "esm",
+          minify: false,
+          sourcemap: "inline",
+          define: {
+            "import.meta.env.VITE_CLERK_PUBLISHABLE_KEY": JSON.stringify(clerkPublishableKey),
+          },
+        });
+        
+        if (!result.success) {
+          console.error("Transpilation errors:", result.logs);
+          return new Response("Transpilation failed", { status: 500 });
+        }
+        
+        // Get the transpiled output
+        const output = result.outputs[0];
+        if (!output) {
+          return new Response("No output from transpilation", { status: 500 });
+        }
+        const transpiledCode = await output.text();
+        
+        return new Response(transpiledCode, {
+          headers: { 
+            "Content-Type": "application/javascript",
+            "Cache-Control": "no-cache",
+          },
+        });
+      } catch (error) {
+        console.error("Error serving frontend.tsx:", error);
+        return new Response("Internal server error", { status: 500 });
+      }
+    },
+    
+    // Serve index.html for all unmatched routes
+    // This catch-all route must be LAST so API routes are matched first
+    "/*": async (req) => {
+      const url = new URL(req.url);
+      const pathname = url.pathname;
+      
+      // Handle static assets (images, fonts, etc.)
+      const staticExtensions = ['.svg', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2', '.ttf', '.eot'];
+      const isStaticAsset = staticExtensions.some(ext => pathname.endsWith(ext));
+      
+      if (isStaticAsset) {
+        // Try to find the file in common locations
+        const filePaths = [
+          `src${pathname}`,
+          `.${pathname}`,
+          pathname.slice(1),
+        ];
+        
+        for (const filePath of filePaths) {
+          const file = Bun.file(filePath);
+          if (await file.exists()) {
+            return new Response(file);
+          }
+        }
+        
+        return new Response("File not found", { status: 404 });
+      }
+      
+      // Serve the HTML template (Clerk key is injected via Bun.build define option)
+      return new Response(htmlTemplate, {
+        headers: { "Content-Type": "text/html" },
+      });
     },
   },
 

@@ -15,3 +15,12 @@ declare module "*.module.css" {
   const classes: { readonly [key: string]: string };
   export = classes;
 }
+
+// Vite/Bun environment variables
+interface ImportMetaEnv {
+  readonly VITE_CLERK_PUBLISHABLE_KEY: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
