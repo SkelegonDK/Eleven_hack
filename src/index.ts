@@ -12,12 +12,26 @@ import {
 const port = Number(process.env.PORT ?? 3000);
 const hostname = process.env.HOST ?? "127.0.0.1";
 
+// Get the Clerk publishable key (supports both VITE_ and BUN_PUBLIC_ prefixes)
+const clerkPublishableKey = process.env.BUN_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
 const server = serve({
   port,
   hostname,
   routes: {
-    // Serve index.html for all unmatched routes.
-    "/*": index,
+    // Serve index.html for all unmatched routes with injected env vars
+    "/*": async () => {
+      const htmlFile = Bun.file("./src/index.html");
+      const htmlContent = await htmlFile.text();
+      // Inject the Clerk key into the HTML before the frontend script
+      const injectedHtml = htmlContent.replace(
+        '<script type="module"',
+        `<script>window.__CLERK_PUBLISHABLE_KEY__ = ${JSON.stringify(clerkPublishableKey)};</script><script type="module"`
+      );
+      return new Response(injectedHtml, {
+        headers: { "Content-Type": "text/html" },
+      });
+    },
 
     // Get agent ID for the selected mode
     "/api/agents": {

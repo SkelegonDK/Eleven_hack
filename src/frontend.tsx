@@ -7,12 +7,21 @@
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { ClerkProvider } from "@clerk/clerk-react";
 import { App } from "./App";
+
+// Get the Clerk key from the injected window variable
+const PUBLISHABLE_KEY = (window as any).__CLERK_PUBLISHABLE_KEY__;
+if (!PUBLISHABLE_KEY) {
+  throw new Error("Missing Clerk Publishable Key");
+}
 
 const elem = document.getElementById("root")!;
 const app = (
   <StrictMode>
-    <App />
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+      <App />
+    </ClerkProvider>
   </StrictMode>
 );
 

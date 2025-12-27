@@ -6,6 +6,7 @@ import { PlayButton } from "./PlayButton";
 import { ConversationView } from "./ConversationView";
 import { Button } from "./ui/button";
 import { Headphones, AlertCircle } from "lucide-react";
+import { SignedIn, UserButton } from "@clerk/clerk-react";
 
 export function LandingPage() {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
@@ -76,20 +77,27 @@ export function LandingPage() {
 
       {/* Header */}
       <header className="relative z-10 px-6 pt-12 pb-6">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-accent blur-lg opacity-50" />
-            <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary to-accent">
-              <Headphones className="w-7 h-7 text-primary-foreground" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-accent blur-lg opacity-50" />
+              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary to-accent">
+                <Headphones className="w-7 h-7 text-primary-foreground" />
+              </div>
+            </div>
+            <div>
+              <h1 className="font-display text-4xl font-extrabold tracking-tight">
+                PODU
+              </h1>
+              <p className="font-mono text-xs text-muted-foreground -mt-1">
+                Interactive Podcast
+              </p>
             </div>
           </div>
-          <div>
-            <h1 className="font-display text-4xl font-extrabold tracking-tight">
-              PODU
-            </h1>
-            <p className="font-mono text-xs text-muted-foreground -mt-1">
-              Interactive Podcast
-            </p>
+          <div className="flex items-center gap-2">
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
           </div>
         </div>
       </header>
