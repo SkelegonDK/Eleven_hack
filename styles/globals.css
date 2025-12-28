@@ -179,6 +179,16 @@
   100% { transform: scale(2.5); opacity: 0; }
 }
 
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes waveform {
+  0%, 100% { height: 20%; }
+  50% { height: 100%; }
+}
+
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }
@@ -189,6 +199,22 @@
 
 .animate-ripple {
   animation: ripple 1.5s ease-out infinite;
+}
+
+.animate-reveal {
+  animation: reveal 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.reveal-on-scroll {
+  opacity: 0;
+}
+
+.reveal-on-scroll.is-visible {
+  animation: reveal 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-waveform {
+  animation: waveform 1.2s ease-in-out infinite;
 }
 
 /* Scroll snap for mobile */

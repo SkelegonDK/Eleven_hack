@@ -5,7 +5,7 @@ import { ModeSelector, type ConversationMode } from "./ModeSelector";
 import { PlayButton } from "./PlayButton";
 import { ConversationView } from "./ConversationView";
 import { Button } from "./ui/button";
-import { Headphones, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { SignedIn, UserButton } from "@clerk/clerk-react";
 import LightRays from "./LightRays";
 import Aurora from './Aurora';
@@ -155,7 +155,11 @@ export function LandingPage() {
             <div className="relative">
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-accent blur-lg opacity-50" />
               <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary to-accent">
-                <Headphones className="w-7 h-7 text-primary-foreground" />
+                <img 
+                  src="/assets/podu-logo.png" 
+                  alt="PODU Logo" 
+                  className="w-[60px] h-[60px] object-contain"
+                />
               </div>
             </div>
             <div>
