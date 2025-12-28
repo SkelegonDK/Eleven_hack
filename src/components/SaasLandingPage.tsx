@@ -96,14 +96,14 @@ export function SaasLandingPage() {
       <header className="fixed top-0 left-0 right-0 z-50 px-6 py-4 backdrop-blur-md border-b border-border/10">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20">
+            <div className="p-2 rounded-xl bg-white shadow-lg shadow-primary/20">
               <img 
                 src="/assets/podu-logo.png" 
                 alt="PODU Logo" 
-                className="w-8 h-8 object-contain"
+                className="w-15 h-15 object-contain"
               />
             </div>
-            <span className="font-display text-2xl font-black tracking-tighter">PODU</span>
+            <span className="font-display text-4xl font-black tracking-tighter">PODU</span>
           </div>
           <div className="flex items-center gap-4">
             <SignInButton mode="modal">
@@ -249,7 +249,7 @@ export function SaasLandingPage() {
               { icon: Sparkles, title: "Choose Your Host", desc: "Match the personality to your vibe." },
               { icon: Play, title: "Join the Show", desc: "Speak, listen, and explore together." }
             ].map((step, i) => (
-              <RevealOnScroll key={i} className="relative z-10 bg-background flex flex-col items-center text-center space-y-6" style={{ animationDelay: `${i * 0.2}s` }}>
+              <RevealOnScroll key={i} className="relative p-6 z-10 bg-background flex flex-col items-center text-center space-y-6" style={{ animationDelay: `${i * 0.2}s` }}>
                 <div className="w-20 h-20 rounded-full bg-primary/10 border-4 border-background flex items-center justify-center group-hover:scale-110 transition-transform shadow-xl">
                   <step.icon className="w-8 h-8 text-primary" />
                 </div>
@@ -303,7 +303,7 @@ export function SaasLandingPage() {
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div className="space-y-12">
               <RevealOnScroll className="space-y-4">
-                <h2 className="font-display text-4xl font-black leading-tight">THE HOST THAT NEVER <br />STOP LEARNING.</h2>
+                <h2 className="font-display text-4xl font-black leading-tight">THE HOST THAT NEVER <br />STOPS LEARNING.</h2>
                 <p className="text-muted-foreground font-mono leading-relaxed">
                   PODU's unique value lies in its depth. It's not just another AI chatbot - it's a personality built to challenge, entertain, and inspire you.
                 </p>

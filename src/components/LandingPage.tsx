@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { SubjectSelector } from "./SubjectSelector";
 import { ModeSelector, type ConversationMode } from "./ModeSelector";
@@ -9,6 +9,43 @@ import { AlertCircle } from "lucide-react";
 import { SignedIn, UserButton } from "@clerk/clerk-react";
 import LightRays from "./LightRays";
 import Aurora from './Aurora';
+
+/**
+ * SSR-safe hook to detect prefers-reduced-motion media query.
+ * Returns true if the user prefers reduced motion or if we're on the server.
+ * Defaults to false (full motion) on initial client render, then updates.
+ */
+function usePrefersReducedMotion(): boolean {
+  // Default to false (full motion) to avoid hydration mismatch
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    // Check if window is available (client-side only)
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    
+    // Set initial value
+    setPrefersReducedMotion(mediaQuery.matches);
+
+    // Listen for changes
+    const handleChange = (event: MediaQueryListEvent) => {
+      setPrefersReducedMotion(event.matches);
+    };
+
+    // Modern browsers
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    } else {
+      // Legacy browsers (Safari < 14)
+      mediaQuery.addListener(handleChange);
+      return () => mediaQuery.removeListener(handleChange);
+    }
+  }, []);
+
+  return prefersReducedMotion;
+}
 
 const getModeColor = (mode: ConversationMode): string => {
   switch (mode) {
@@ -55,13 +92,27 @@ const getAuroraColors = (selectedSubjects: string[]): string[] => {
   return colors.slice(0, 3);
 };
 
-export function LandingPage() {
+interface LandingPageProps {
+  /** Runtime opt-out to disable heavy effects (for low-end devices) */
+  disableHeavyEffects?: boolean;
+}
+
+export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: LandingPageProps = {}) {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [selectedMode, setSelectedMode] = useState<ConversationMode>("edu");
   const [isLoading, setIsLoading] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [showConversation, setShowConversation] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
+  
+  // Runtime state for disabling heavy effects (can be toggled by user or set via prop)
+  const [disableHeavyEffectsState, setDisableHeavyEffectsState] = useState(false);
+  
+  // SSR-safe detection of prefers-reduced-motion
+  const prefersReducedMotion = usePrefersReducedMotion();
+  
+  // Combine all sources: prop, state, or user preference
+  const shouldReduceMotion = prefersReducedMotion || disableHeavyEffectsProp || disableHeavyEffectsState;
 
   const canStart = selectedSubjects.length > 0;
   
@@ -124,13 +175,16 @@ export function LandingPage() {
         <LightRays
           raysOrigin="top-center"
           raysColor={getModeColor(selectedMode)}
-          raysSpeed={1.5}
+          // Reduce animation intensity when motion should be reduced
+          raysSpeed={shouldReduceMotion ? 0.3 : 1.5}
           lightSpread={0.8}
           rayLength={1.2}
-          followMouse={true}
-          mouseInfluence={0.1}
-          noiseAmount={0.1}
-          distortion={0.05}
+          // Disable mouse following for motion-sensitive users
+          followMouse={!shouldReduceMotion}
+          mouseInfluence={shouldReduceMotion ? 0 : 0.1}
+          // Reduce/eliminate noise and distortion effects
+          noiseAmount={shouldReduceMotion ? 0 : 0.1}
+          distortion={shouldReduceMotion ? 0 : 0.05}
           className="w-full h-full"
         />
       </div>
@@ -141,8 +195,9 @@ export function LandingPage() {
           <Aurora
             colorStops={auroraColors}
             blend={0.5}
-            amplitude={1.0}
-            speed={0.5}
+            // Reduce animation intensity when motion should be reduced
+            amplitude={shouldReduceMotion ? 0.2 : 1.0}
+            speed={shouldReduceMotion ? 0.1 : 0.5}
             className="w-full h-full"
           />
         </div>
@@ -153,8 +208,8 @@ export function LandingPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-accent blur-lg opacity-50" />
-              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary to-accent">
+              <div className="absolute inset-0 rounded-xl bg-white blur-lg opacity-50" />
+              <div className="relative p-3 rounded-xl bg-white">
                 <img 
                   src="/assets/podu-logo.png" 
                   alt="PODU Logo" 
