@@ -1,5 +1,6 @@
 import { serve } from "bun";
 import index from "./index.html";
+import plugin from "bun-plugin-tailwind";
 import { getAgentForMode, getSignedUrl } from "./api/agents";
 import { 
   uploadDocument, 
@@ -163,6 +164,7 @@ const server = serve({
         // Transpile the file with environment variable injection
         const result = await Bun.build({
           entrypoints: ["./src/frontend.tsx"],
+          plugins: [plugin],
           target: "browser",
           format: "esm",
           minify: false,
@@ -177,12 +179,22 @@ const server = serve({
           return new Response("Transpilation failed", { status: 500 });
         }
         
-        // Get the transpiled output
-        const output = result.outputs[0];
-        if (!output) {
-          return new Response("No output from transpilation", { status: 500 });
+        // Find JS and CSS outputs
+        const jsOutput = result.outputs.find(output => output.kind === "entry-point" || output.path.endsWith(".js"));
+        const cssOutput = result.outputs.find(output => output.kind === "asset" && output.path.endsWith(".css"));
+        
+        if (!jsOutput) {
+          return new Response("No JavaScript output from transpilation", { status: 500 });
         }
-        const transpiledCode = await output.text();
+        
+        let transpiledCode = await jsOutput.text();
+        
+        // If there's a CSS output, inject it into the JS bundle
+        if (cssOutput) {
+          const cssContent = await cssOutput.text();
+          // Inject CSS by creating a style tag injection at the start of the module
+          transpiledCode = `const style = document.createElement('style'); style.textContent = ${JSON.stringify(cssContent)}; document.head.appendChild(style);\n${transpiledCode}`;
+        }
         
         return new Response(transpiledCode, {
           headers: { 
@@ -203,7 +215,7 @@ const server = serve({
       const pathname = url.pathname;
       
       // Handle static assets (images, fonts, etc.)
-      const staticExtensions = ['.svg', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2', '.ttf', '.eot'];
+      const staticExtensions = ['.svg', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2', '.ttf', '.eot', '.css'];
       const isStaticAsset = staticExtensions.some(ext => pathname.endsWith(ext));
       
       if (isStaticAsset) {

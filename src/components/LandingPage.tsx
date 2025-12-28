@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { SubjectSelector } from "./SubjectSelector";
 import { ModeSelector, type ConversationMode } from "./ModeSelector";
@@ -7,6 +7,53 @@ import { ConversationView } from "./ConversationView";
 import { Button } from "./ui/button";
 import { Headphones, AlertCircle } from "lucide-react";
 import { SignedIn, UserButton } from "@clerk/clerk-react";
+import LightRays from "./LightRays";
+import Aurora from './Aurora';
+
+const getModeColor = (mode: ConversationMode): string => {
+  switch (mode) {
+    case "fun":
+      return "#ff8800"; // orange/amber
+    case "edu":
+      return "#00ffff"; // cyan
+    case "deep":
+      return "#aa00ff"; // violet/purple
+    default:
+      return "#00ffff"; // default to cyan
+  }
+};
+
+// Map subject IDs to hex colors (using the "from" color from gradient)
+const getSubjectColor = (subjectId: string): string => {
+  const colorMap: Record<string, string> = {
+    tech: "#06b6d4", // cyan-500
+    science: "#22c55e", // green-500
+    history: "#f59e0b", // amber-500
+    philosophy: "#a855f7", // purple-500
+    business: "#94a3b8", // slate-400
+    health: "#f43f5e", // rose-500
+    arts: "#d946ef", // fuchsia-500
+    upload: "#6366f1", // indigo-500
+  };
+  return colorMap[subjectId] || "#3A29FF"; // default color
+};
+
+// Get Aurora colors based on selected subjects
+const getAuroraColors = (selectedSubjects: string[]): string[] => {
+  if (selectedSubjects.length === 0) {
+    return ["#3A29FF", "#FF94B4", "#FF3232"]; // default colors
+  }
+  
+  const colors = selectedSubjects.map(getSubjectColor);
+  
+  // Pad to 3 colors if needed
+  while (colors.length < 3) {
+    colors.push(colors[colors.length - 1] || "#3A29FF");
+  }
+  
+  // Return only first 3 colors
+  return colors.slice(0, 3);
+};
 
 export function LandingPage() {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
@@ -17,6 +64,9 @@ export function LandingPage() {
   const [agentId, setAgentId] = useState<string | null>(null);
 
   const canStart = selectedSubjects.length > 0;
+  
+  // Compute Aurora colors based on selected subjects
+  const auroraColors = useMemo(() => getAuroraColors(selectedSubjects), [selectedSubjects]);
 
   const handleStart = async () => {
     if (!canStart) return;
@@ -69,10 +119,33 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* Decorative background elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-accent/5 blur-3xl" />
+      {/* LightRays background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <LightRays
+          raysOrigin="top-center"
+          raysColor={getModeColor(selectedMode)}
+          raysSpeed={1.5}
+          lightSpread={0.8}
+          rayLength={1.2}
+          followMouse={true}
+          mouseInfluence={0.1}
+          noiseAmount={0.1}
+          distortion={0.05}
+          className="w-full h-full"
+        />
+      </div>
+
+      {/* Aurora background - positioned at bottom, on top of LightRays */}
+      <div className="fixed bottom-0 left-0 right-0 h-1/2 overflow-hidden pointer-events-none z-[1] bg-transparent">
+        <div className="w-full h-full rotate-180 bg-transparent">
+          <Aurora
+            colorStops={auroraColors}
+            blend={0.5}
+            amplitude={1.0}
+            speed={0.5}
+            className="w-full h-full"
+          />
+        </div>
       </div>
 
       {/* Header */}
@@ -126,11 +199,8 @@ export function LandingPage() {
 
       {/* Fixed bottom play button */}
       <footer className="fixed bottom-0 inset-x-0 z-20">
-        {/* Gradient fade */}
-        <div className="absolute inset-x-0 -top-20 h-20 bg-gradient-to-t from-background to-transparent pointer-events-none" />
-        
         {/* Content */}
-        <div className="relative bg-background/80 backdrop-blur-xl px-6 py-8 pb-10">
+        <div className="relative px-6 py-8 pb-10">
           <div className="flex flex-col items-center gap-4">
             {/* Validation message */}
             {!canStart && (

@@ -2,15 +2,39 @@ import { SignedIn, SignedOut, SignInButton, SignUpButton } from "@clerk/clerk-re
 import { LandingPage } from "./components/LandingPage";
 import { Button } from "./components/ui/button";
 import { Headphones } from "lucide-react";
-import "./index.css";
+import LightRays from "./components/LightRays";
+import type { ConversationMode } from "./components/ModeSelector";
+
+const getModeColor = (mode: ConversationMode): string => {
+  switch (mode) {
+    case "fun":
+      return "#ff8800"; // orange/amber
+    case "edu":
+      return "#00ffff"; // cyan
+    case "deep":
+      return "#aa00ff"; // violet/purple
+    default:
+      return "#00ffff"; // default to cyan
+  }
+};
 
 function WelcomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* Decorative background elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-accent/5 blur-3xl" />
+      {/* LightRays background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <LightRays
+          raysOrigin="top-center"
+          raysColor={getModeColor("edu")}
+          raysSpeed={1.5}
+          lightSpread={0.8}
+          rayLength={1.2}
+          followMouse={true}
+          mouseInfluence={0.1}
+          noiseAmount={0.2}
+          distortion={0.05}
+          className="w-full h-full"
+        />
       </div>
 
       {/* Main content - centered */}
