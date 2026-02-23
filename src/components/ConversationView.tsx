@@ -3,6 +3,8 @@ import { useConversation } from "@elevenlabs/react";
 import { cn } from "@/lib/utils";
 import { PlayButton } from "./PlayButton";
 import type { ConversationMode } from "./ModeSelector";
+import { subjects as allSubjects } from "./SubjectSelector";
+import { AGENT_PROMPTS } from "../api/agentPrompts";
 import { X, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
 
 interface ConversationViewProps {
@@ -70,15 +72,33 @@ export function ConversationView({
     try {
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      
+
+      // Build topic restriction from selected subjects
+      const selectedSubjectNames = allSubjects
+        .filter(s => subjects.includes(s.id))
+        .map(s => s.name);
+
+      const topicSection = selectedSubjectNames.length > 0
+        ? `\n\nTOPIC FOCUS (NON-NEGOTIABLE):\nThe user has selected these specific topics: ${selectedSubjectNames.join(", ")}.\n- Discuss ONLY these topics.\n- Do NOT bring up artificial intelligence, machine learning, or any subject not in the list above, even tangentially.\n- If the conversation drifts off-topic, steer it back to the selected topics.`
+        : "";
+
       // Start the conversation with the agent
       await conversation.startSession({
         agentId: agentId,
+        connectionType: "webrtc",
+        overrides: {
+          agent: {
+            prompt: {
+              prompt: AGENT_PROMPTS[mode].systemPrompt + topicSection,
+            },
+            firstMessage: AGENT_PROMPTS[mode].firstMessage,
+          },
+        },
       });
     } catch (error) {
       console.error("Failed to start conversation:", error);
     }
-  }, [conversation, agentId]);
+  }, [conversation, agentId, mode, subjects]);
 
   const stopConversation = useCallback(async () => {
     await conversation.endSession();
