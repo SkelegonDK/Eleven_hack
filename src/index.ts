@@ -1,7 +1,7 @@
 import { serve } from "bun";
 import index from "./index.html";
 import plugin from "bun-plugin-tailwind";
-import { getAgentForMode, getSignedUrl } from "./api/agents";
+import { getAgentForMode, getSignedUrl, getConversationToken } from "./api/agents";
 import { 
   uploadDocument, 
   getDocument, 
@@ -46,7 +46,7 @@ const server = serve({
       },
     },
 
-    // Get signed URL for conversation
+    // Get signed URL for conversation (WebSocket)
     "/api/agents/:agentId/signed-url": {
       async GET(req) {
         try {
@@ -57,6 +57,23 @@ const server = serve({
           console.error("Error getting signed URL:", error);
           return Response.json(
             { error: error instanceof Error ? error.message : "Failed to get signed URL" },
+            { status: 500 }
+          );
+        }
+      },
+    },
+
+    // Get conversation token for WebRTC
+    "/api/agents/:agentId/conversation-token": {
+      async GET(req) {
+        try {
+          const agentId = req.params.agentId;
+          const token = await getConversationToken(agentId);
+          return Response.json({ token });
+        } catch (error) {
+          console.error("Error getting conversation token:", error);
+          return Response.json(
+            { error: error instanceof Error ? error.message : "Failed to get conversation token" },
             { status: 500 }
           );
         }
