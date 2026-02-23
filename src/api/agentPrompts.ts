@@ -1,5 +1,10 @@
 import type { ConversationMode } from "../components/ModeSelector";
 
+// ============================================
+// PROMPTS FOR EACH AGENT MODE
+// Copy these to your ElevenLabs agent configurations
+// ============================================
+
 export const AGENT_PROMPTS: Record<ConversationMode, { name: string; systemPrompt: string; firstMessage: string }> = {
   fun: {
     name: "PODU FUN Host",
