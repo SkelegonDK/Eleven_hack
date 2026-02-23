@@ -27,6 +27,31 @@ export async function getAgentForMode(request: GetAgentRequest): Promise<GetAgen
   return { agentId };
 }
 
+export async function getConversationToken(agentId: string): Promise<string> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("ELEVENLABS_API_KEY environment variable is not set");
+  }
+
+  const response = await fetch(
+    `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${agentId}`,
+    {
+      method: "GET",
+      headers: {
+        "xi-api-key": apiKey,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to get conversation token: ${response.status}`);
+  }
+
+  const data = (await response.json()) as { token: string };
+  return data.token;
+}
+
 export async function getSignedUrl(agentId: string): Promise<string> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   
@@ -35,7 +60,7 @@ export async function getSignedUrl(agentId: string): Promise<string> {
   }
 
   const response = await fetch(
-    `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${agentId}`,
+    `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${agentId}`,
     {
       method: "GET",
       headers: {

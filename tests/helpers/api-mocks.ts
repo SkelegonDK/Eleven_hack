@@ -33,6 +33,29 @@ export async function mockAgentsApi(
 }
 
 /**
+ * Mock the /api/agents/:agentId/conversation-token GET endpoint (WebRTC)
+ */
+export async function mockConversationTokenApi(
+  page: Page,
+  options: MockApiOptions = {}
+): Promise<void> {
+  const { delay = 0, status = 200, body = { token: "test-conversation-token" } } = options;
+
+  await page.route("**/api/agents/*/conversation-token", async (route: Route) => {
+    if (route.request().method() === "GET") {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      await route.fulfill({
+        status,
+        contentType: "application/json",
+        body: JSON.stringify(body),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+}
+
+/**
  * Mock the /api/documents POST endpoint (file upload)
  */
 export async function mockDocumentsUploadApi(
@@ -93,11 +116,13 @@ export async function setupApiMocks(
   page: Page,
   options: {
     agentsDelay?: number;
+    conversationTokenDelay?: number;
     uploadDelay?: number;
     deleteDelay?: number;
   } = {}
 ): Promise<void> {
   await mockAgentsApi(page, { delay: options.agentsDelay ?? 1200 });
+  await mockConversationTokenApi(page, { delay: options.conversationTokenDelay ?? 0 });
   await mockDocumentsUploadApi(page, { delay: options.uploadDelay ?? 800 });
   await mockDocumentsDeleteApi(page, { delay: options.deleteDelay ?? 300 });
 }

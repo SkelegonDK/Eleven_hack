@@ -5,7 +5,7 @@ import { PlayButton } from "./PlayButton";
 import type { ConversationMode } from "./ModeSelector";
 import { subjects as allSubjects } from "./SubjectSelector";
 import { AGENT_PROMPTS } from "../api/agentPrompts";
-import { X, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
+import { X, Volume2, VolumeX, Mic, AlertCircle } from "lucide-react";
 
 interface ConversationViewProps {
   mode: ConversationMode;
@@ -49,29 +49,38 @@ export function ConversationView({
 }: ConversationViewProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
+  const [startError, setStartError] = useState<string | null>(null);
   const styles = modeStyles[mode];
 
   const conversation = useConversation({
     onConnect: () => {
-      console.log("Connected to ElevenLabs");
+      setStartError(null);
     },
-    onDisconnect: () => {
-      console.log("Disconnected from ElevenLabs");
-    },
-    onMessage: (message) => {
-      console.log("Message:", message);
-    },
-    onError: (error) => {
-      console.error("Conversation error:", error);
+    onDisconnect: () => {},
+    onMessage: () => {},
+    onError: (error: unknown) => {
+      const message = typeof error === "object" && error !== null && "message" in error && typeof (error as Error).message === "string"
+        ? (error as Error).message
+        : "Connection error. Please try again.";
+      setStartError(message);
     },
   });
 
   const { status, isSpeaking } = conversation;
 
   const startConversation = useCallback(async () => {
+    setStartError(null);
     try {
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Fetch conversation token for WebRTC (works for both public and protected agents)
+      const tokenRes = await fetch(`/api/agents/${agentId}/conversation-token`);
+      if (!tokenRes.ok) {
+        const errorData = await tokenRes.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to get conversation token");
+      }
+      const { token } = (await tokenRes.json()) as { token: string };
 
       // Build topic restriction from selected subjects
       const selectedSubjectNames = allSubjects
@@ -82,21 +91,22 @@ export function ConversationView({
         ? `\n\nTOPIC FOCUS (NON-NEGOTIABLE):\nThe user has selected these specific topics: ${selectedSubjectNames.join(", ")}.\n- Discuss ONLY these topics.\n- Do NOT bring up artificial intelligence, machine learning, or any subject not in the list above, even tangentially.\n- If the conversation drifts off-topic, steer it back to the selected topics.`
         : "";
 
-      // Start the conversation with the agent
+      // Start the conversation with the token (WebRTC)
       await conversation.startSession({
-        agentId: agentId,
+        conversationToken: token,
         connectionType: "webrtc",
         overrides: {
           agent: {
             prompt: {
               prompt: AGENT_PROMPTS[mode].systemPrompt + topicSection,
             },
-            firstMessage: AGENT_PROMPTS[mode].firstMessage,
+            firstMessage: AGENT_PROMPTS[mode].buildFirstMessage(selectedSubjectNames),
           },
         },
       });
     } catch (error) {
-      console.error("Failed to start conversation:", error);
+      const message = error instanceof Error ? error.message : "Failed to start conversation";
+      setStartError(message);
     }
   }, [conversation, agentId, mode, subjects]);
 
@@ -189,6 +199,26 @@ export function ConversationView({
 
       {/* Main content */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
+        {/* Error banner */}
+        {startError && (
+          <div
+            role="alert"
+            className={cn(
+              "mb-6 flex items-center gap-3 px-4 py-3 rounded-lg max-w-md w-full",
+              "bg-destructive/10 border border-destructive/30 text-destructive"
+            )}
+          >
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <p className="font-mono text-sm">{startError}</p>
+            <button
+              onClick={() => setStartError(null)}
+              className="ml-auto p-1 rounded hover:bg-destructive/20 transition-colors"
+              aria-label="Dismiss error"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         {/* Status indicator */}
         <div className={cn(
           "mb-8 px-4 py-2 rounded-full",
