@@ -16,7 +16,15 @@ export async function mockAgentsApi(
   page: Page,
   options: MockApiOptions = {}
 ): Promise<void> {
-  const { delay = 0, status = 200, body = { agentId: "test-agent-123" } } = options;
+  const {
+    delay = 0,
+    status = 200,
+    body = {
+      agentId: "test-agent-123",
+      systemPrompt: "You are the host of PODU, an interactive podcast.",
+      firstMessage: "Welcome to PODU! What would you like to talk about?",
+    },
+  } = options;
 
   await page.route("**/api/agents", async (route: Route) => {
     if (route.request().method() === "POST") {
@@ -110,6 +118,29 @@ export async function mockDocumentsDeleteApi(
 }
 
 /**
+ * Mock the /api/documents GET endpoint (list documents)
+ */
+export async function mockDocumentsListApi(
+  page: Page,
+  options: MockApiOptions = {}
+): Promise<void> {
+  const { delay = 0, status = 200, body = { documents: [] } } = options;
+
+  await page.route("**/api/documents", async (route: Route) => {
+    if (route.request().method() === "GET") {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      await route.fulfill({
+        status,
+        contentType: "application/json",
+        body: JSON.stringify(body),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+}
+
+/**
  * Setup all API mocks with default latency
  */
 export async function setupApiMocks(
@@ -125,5 +156,6 @@ export async function setupApiMocks(
   await mockConversationTokenApi(page, { delay: options.conversationTokenDelay ?? 0 });
   await mockDocumentsUploadApi(page, { delay: options.uploadDelay ?? 800 });
   await mockDocumentsDeleteApi(page, { delay: options.deleteDelay ?? 300 });
+  await mockDocumentsListApi(page);
 }
 

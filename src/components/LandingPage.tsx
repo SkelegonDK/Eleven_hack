@@ -104,6 +104,8 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
   const [startError, setStartError] = useState<string | null>(null);
   const [showConversation, setShowConversation] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
+  const [agentSystemPrompt, setAgentSystemPrompt] = useState<string | null>(null);
+  const [agentFirstMessage, setAgentFirstMessage] = useState<string | null>(null);
   
   // Runtime state for disabling heavy effects (can be toggled by user or set via prop)
   const [disableHeavyEffectsState, setDisableHeavyEffectsState] = useState(false);
@@ -143,6 +145,8 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
       
       const data = await response.json();
       setAgentId(data.agentId);
+      setAgentSystemPrompt(data.systemPrompt);
+      setAgentFirstMessage(data.firstMessage);
       setShowConversation(true);
     } catch (error) {
       console.error("Failed to start conversation:", error);
@@ -155,14 +159,18 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
   const handleCloseConversation = () => {
     setShowConversation(false);
     setAgentId(null);
+    setAgentSystemPrompt(null);
+    setAgentFirstMessage(null);
   };
 
-  if (showConversation && agentId) {
+  if (showConversation && agentId && agentSystemPrompt && agentFirstMessage) {
     return (
       <ConversationView
         mode={selectedMode}
-        subjects={selectedSubjects}
         agentId={agentId}
+        systemPrompt={agentSystemPrompt}
+        firstMessage={agentFirstMessage}
+        subjectCount={selectedSubjects.length}
         onClose={handleCloseConversation}
       />
     );

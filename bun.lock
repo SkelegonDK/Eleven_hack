@@ -7,7 +7,7 @@
       "dependencies": {
         "@ai-sdk/react": "^2.0.112",
         "@clerk/clerk-react": "^5.59.2",
-        "@elevenlabs/react": "^0.12.1",
+        "@elevenlabs/react": "^0.14.0",
         "@radix-ui/react-dialog": "^1.1.15",
         "@radix-ui/react-label": "^2.1.7",
         "@radix-ui/react-select": "^2.2.6",
@@ -47,11 +47,11 @@
 
     "@clerk/shared": ["@clerk/shared@3.41.1", "", { "dependencies": { "csstype": "3.1.3", "dequal": "2.0.3", "glob-to-regexp": "0.4.1", "js-cookie": "3.0.5", "std-env": "^3.9.0", "swr": "2.3.4" }, "peerDependencies": { "react": "^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0", "react-dom": "^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0" }, "optionalPeers": ["react", "react-dom"] }, "sha512-BCbT7Xodk2rndA2nV/lW8X5LMNTvFP5UG2wNN9cYuAcTaI6hYZP18/z2zef2gG4xIrK7WAEjGVzHscikqNtzFQ=="],
 
-    "@elevenlabs/client": ["@elevenlabs/client@0.12.0", "", { "dependencies": { "@elevenlabs/types": "0.4.0", "livekit-client": "^2.11.4" } }, "sha512-iMpDqvte8ozXT/jWcD4eKiik4yLigTMpmyMGCiuKsKajbS5ebSja/8T+qc/ZXmI1iRUy+wLTUJRGGYns1Tqj+g=="],
+    "@elevenlabs/client": ["@elevenlabs/client@0.14.0", "", { "dependencies": { "@elevenlabs/types": "0.5.0", "livekit-client": "^2.11.4" } }, "sha512-Iy+iHSDhYm4vxWiIjrmIsjwiesEkgB5MPRizluigL7GTb9tZwlcx2J53/WNYewplQvRhLiMmwqGoDn6qxy7JzQ=="],
 
-    "@elevenlabs/react": ["@elevenlabs/react@0.12.1", "", { "dependencies": { "@elevenlabs/client": "0.12.0" }, "peerDependencies": { "react": ">=16.8.0" } }, "sha512-7dNT1dcSnsbGk3wv8LETFJn9O6zjD/qbcu75j7PvcrK7DS7P6YadPweheKt4KTlq6MnIh+X/nWZNKvpxd2ggBw=="],
+    "@elevenlabs/react": ["@elevenlabs/react@0.14.0", "", { "dependencies": { "@elevenlabs/client": "0.14.0" }, "peerDependencies": { "react": ">=16.8.0" } }, "sha512-iGI6yyPgZF1/FBtQtvyCW5lhQvlIEQ5LrKQxwzT3qBcS4Ja0f+jVftKQGhilRtJLOKeli5t7Dv9g9dDGO2gAwg=="],
 
-    "@elevenlabs/types": ["@elevenlabs/types@0.4.0", "", {}, "sha512-6CQb4r9DjepILhLybDxW0h8rvbsR8jPAp74HvFGYuvYdXcQRTkYTD9BQ4PV6VcuC1iqx0UljzJj8js3ADQ8EXw=="],
+    "@elevenlabs/types": ["@elevenlabs/types@0.5.0", "", {}, "sha512-tTawfIkJdOmV1W74yOYFbCXOwz/5sYKtdxVoK8uf5tDdtpZUHerBC25Oc8i7shZQc6QvvIuyV2YtMh37PKYMBA=="],
 
     "@floating-ui/core": ["@floating-ui/core@1.7.3", "", { "dependencies": { "@floating-ui/utils": "^0.2.10" } }, "sha512-sGnvb5dmrJaKEZ+LDIpguvdX3bDlEllmv4/ClQ9awcmCZrlx5jQyyMWFM5kBI+EyNOCDDiKk8il0zeuX3Zlg/w=="],
 
