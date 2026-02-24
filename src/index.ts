@@ -1,13 +1,13 @@
 import { serve } from "bun";
 import index from "./index.html";
 import plugin from "bun-plugin-tailwind";
-import { getAgentForMode, getSignedUrl, getConversationToken } from "./api/agents";
-import { 
-  uploadDocument, 
-  getDocument, 
-  deleteDocument, 
+import { getAgentForMode, getConversationToken } from "./api/agents";
+import {
+  uploadDocument,
+  getDocument,
+  deleteDocument,
   listDocuments,
-  parseDocumentContent 
+  parseDocumentContent
 } from "./api/knowledgebase";
 
 const port = Number(process.env.PORT ?? 3000);
@@ -40,23 +40,6 @@ const server = serve({
           console.error("Error getting agent:", error);
           return Response.json(
             { error: error instanceof Error ? error.message : "Failed to get agent" },
-            { status: 500 }
-          );
-        }
-      },
-    },
-
-    // Get signed URL for conversation (WebSocket)
-    "/api/agents/:agentId/signed-url": {
-      async GET(req) {
-        try {
-          const agentId = req.params.agentId;
-          const signedUrl = await getSignedUrl(agentId);
-          return Response.json({ signedUrl });
-        } catch (error) {
-          console.error("Error getting signed URL:", error);
-          return Response.json(
-            { error: error instanceof Error ? error.message : "Failed to get signed URL" },
             { status: 500 }
           );
         }
@@ -105,20 +88,20 @@ const server = serve({
         try {
           const formData = await req.formData();
           const file = formData.get("file") as File | null;
-          
+
           if (!file) {
             return Response.json(
               { error: "No file provided" },
               { status: 400 }
             );
           }
-          
+
           const content = await parseDocumentContent(file);
           const result = await uploadDocument({
             name: file.name,
             content,
           });
-          
+
           return Response.json(result);
         } catch (error) {
           console.error("Error uploading document:", error);
@@ -177,7 +160,7 @@ const server = serve({
         if (!(await file.exists())) {
           return new Response("File not found", { status: 404 });
         }
-        
+
         // Transpile the file with environment variable injection
         const result = await Bun.build({
           entrypoints: ["./src/frontend.tsx"],
@@ -190,31 +173,31 @@ const server = serve({
             "import.meta.env.VITE_CLERK_PUBLISHABLE_KEY": JSON.stringify(clerkPublishableKey),
           },
         });
-        
+
         if (!result.success) {
           console.error("Transpilation errors:", result.logs);
           return new Response("Transpilation failed", { status: 500 });
         }
-        
+
         // Find JS and CSS outputs
         const jsOutput = result.outputs.find(output => output.kind === "entry-point" || output.path.endsWith(".js"));
         const cssOutput = result.outputs.find(output => output.kind === "asset" && output.path.endsWith(".css"));
-        
+
         if (!jsOutput) {
           return new Response("No JavaScript output from transpilation", { status: 500 });
         }
-        
+
         let transpiledCode = await jsOutput.text();
-        
+
         // If there's a CSS output, inject it into the JS bundle
         if (cssOutput) {
           const cssContent = await cssOutput.text();
           // Inject CSS by creating a style tag injection at the start of the module
           transpiledCode = `const style = document.createElement('style'); style.textContent = ${JSON.stringify(cssContent)}; document.head.appendChild(style);\n${transpiledCode}`;
         }
-        
+
         return new Response(transpiledCode, {
-          headers: { 
+          headers: {
             "Content-Type": "application/javascript",
             "Cache-Control": "no-cache",
           },
@@ -224,17 +207,17 @@ const server = serve({
         return new Response("Internal server error", { status: 500 });
       }
     },
-    
+
     // Serve index.html for all unmatched routes
     // This catch-all route must be LAST so API routes are matched first
     "/*": async (req) => {
       const url = new URL(req.url);
       const pathname = url.pathname;
-      
+
       // Handle static assets (images, fonts, etc.)
       const staticExtensions = ['.svg', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2', '.ttf', '.eot', '.css'];
       const isStaticAsset = staticExtensions.some(ext => pathname.endsWith(ext));
-      
+
       if (isStaticAsset) {
         // Try to find the file in common locations
         const filePaths = [
@@ -242,17 +225,17 @@ const server = serve({
           `.${pathname}`,
           pathname.slice(1),
         ];
-        
+
         for (const filePath of filePaths) {
           const file = Bun.file(filePath);
           if (await file.exists()) {
             return new Response(file);
           }
         }
-        
+
         return new Response("File not found", { status: 404 });
       }
-      
+
       // Serve the HTML template (Clerk key is injected via Bun.build define option)
       return new Response(htmlTemplate, {
         headers: { "Content-Type": "text/html" },

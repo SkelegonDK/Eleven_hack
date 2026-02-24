@@ -1,16 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useConversation } from "@elevenlabs/react";
 import { cn } from "@/lib/utils";
 import { PlayButton } from "./PlayButton";
 import type { ConversationMode } from "./ModeSelector";
-import { subjects as allSubjects } from "./SubjectSelector";
-import { AGENT_PROMPTS } from "../api/agentPrompts";
 import { X, Volume2, VolumeX, Mic, AlertCircle } from "lucide-react";
 
 interface ConversationViewProps {
   mode: ConversationMode;
-  subjects: string[];
   agentId: string;
+  systemPrompt: string;
+  firstMessage: string;
+  subjectCount: number;
   onClose: () => void;
 }
 
@@ -41,16 +41,19 @@ const modeNames = {
   deep: "DEEP",
 };
 
-export function ConversationView({ 
-  mode, 
-  subjects, 
+export function ConversationView({
+  mode,
   agentId,
-  onClose 
+  systemPrompt,
+  firstMessage,
+  subjectCount,
+  onClose
 }: ConversationViewProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const [startError, setStartError] = useState<string | null>(null);
   const styles = modeStyles[mode];
+  const conversationRef = useRef<ReturnType<typeof useConversation> | null>(null);
 
   const conversation = useConversation({
     onConnect: () => {
@@ -66,6 +69,9 @@ export function ConversationView({
     },
   });
 
+  // Keep ref in sync for cleanup
+  conversationRef.current = conversation;
+
   const { status, isSpeaking } = conversation;
 
   const startConversation = useCallback(async () => {
@@ -74,7 +80,7 @@ export function ConversationView({
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Fetch conversation token for WebRTC (works for both public and protected agents)
+      // Fetch conversation token for WebRTC
       const tokenRes = await fetch(`/api/agents/${agentId}/conversation-token`);
       if (!tokenRes.ok) {
         const errorData = await tokenRes.json().catch(() => ({}));
@@ -82,25 +88,16 @@ export function ConversationView({
       }
       const { token } = (await tokenRes.json()) as { token: string };
 
-      // Build topic restriction from selected subjects
-      const selectedSubjectNames = allSubjects
-        .filter(s => subjects.includes(s.id))
-        .map(s => s.name);
-
-      const topicSection = selectedSubjectNames.length > 0
-        ? `\n\nTOPIC FOCUS (NON-NEGOTIABLE):\nThe user has selected these specific topics: ${selectedSubjectNames.join(", ")}.\n- Discuss ONLY these topics.\n- Do NOT bring up artificial intelligence, machine learning, or any subject not in the list above, even tangentially.\n- If the conversation drifts off-topic, steer it back to the selected topics.`
-        : "";
-
-      // Start the conversation with the token (WebRTC)
+      // Start the conversation with server-built prompt
       await conversation.startSession({
         conversationToken: token,
         connectionType: "webrtc",
         overrides: {
           agent: {
             prompt: {
-              prompt: AGENT_PROMPTS[mode].systemPrompt + topicSection,
+              prompt: systemPrompt,
             },
-            firstMessage: AGENT_PROMPTS[mode].buildFirstMessage(selectedSubjectNames),
+            firstMessage,
           },
         },
       });
@@ -108,7 +105,7 @@ export function ConversationView({
       const message = error instanceof Error ? error.message : "Failed to start conversation";
       setStartError(message);
     }
-  }, [conversation, agentId, mode, subjects]);
+  }, [conversation, agentId, systemPrompt, firstMessage]);
 
   const stopConversation = useCallback(async () => {
     await conversation.endSession();
@@ -129,12 +126,10 @@ export function ConversationView({
     conversation.setVolume({ volume: newMuted ? 0 : 1 });
   };
 
-  // Cleanup on unmount
+  // Cleanup on unmount using ref to avoid stale closure
   useEffect(() => {
     return () => {
-      if (status === "connected") {
-        conversation.endSession();
-      }
+      conversationRef.current?.endSession();
     };
   }, []);
 
@@ -145,7 +140,7 @@ export function ConversationView({
         "absolute inset-0 bg-gradient-to-br opacity-50",
         styles.gradient
       )} />
-      
+
       {/* Animated circles background */}
       <div className="absolute inset-0 overflow-hidden">
         {[...Array(5)].map((_, i) => (
@@ -171,7 +166,7 @@ export function ConversationView({
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between p-4">
         <div className="flex items-center gap-3">
-          <div 
+          <div
             data-testid="conversation-mode-badge"
             className={cn(
             "px-3 py-1 rounded-full text-xs font-bold font-mono",
@@ -181,7 +176,7 @@ export function ConversationView({
             {modeNames[mode]}
           </div>
           <span className="font-mono text-xs text-muted-foreground">
-            {subjects.length} topic{subjects.length > 1 ? "s" : ""}
+            {subjectCount} topic{subjectCount > 1 ? "s" : ""}
           </span>
         </div>
 
@@ -228,18 +223,18 @@ export function ConversationView({
           <div className="flex items-center gap-2">
             <div className={cn(
               "w-2 h-2 rounded-full",
-              status === "connected" 
-                ? isSpeaking 
-                  ? "bg-green-500 animate-pulse" 
+              status === "connected"
+                ? isSpeaking
+                  ? "bg-green-500 animate-pulse"
                   : "bg-green-500"
                 : status === "connecting"
                 ? "bg-yellow-500 animate-pulse"
                 : "bg-muted-foreground"
             )} />
             <span className="font-mono text-xs text-foreground/80">
-              {status === "connected" 
-                ? isSpeaking 
-                  ? "Host is speaking..." 
+              {status === "connected"
+                ? isSpeaking
+                  ? "Host is speaking..."
                   : "Listening..."
                 : status === "connecting"
                 ? "Connecting..."
@@ -268,8 +263,8 @@ export function ConversationView({
                   styles.bg
                 )}
                 style={{
-                  height: isSpeaking 
-                    ? `${Math.random() * 100}%` 
+                  height: isSpeaking
+                    ? `${Math.random() * 100}%`
                     : "20%",
                   opacity: isSpeaking ? 0.8 : 0.3,
                   animationDelay: `${i * 50}ms`,
@@ -317,4 +312,3 @@ export function ConversationView({
     </div>
   );
 }
-
