@@ -19,8 +19,8 @@ function getConvexClient(): ConvexHttpClient {
 const PLAN_LIMITS: Record<string, number> = {
   free: 5,
   casual: 30,
-  daily: 120,
-  power: 300,
+  regular: 120,
+  deep: 300,
 };
 
 export interface UsageCheckResult {

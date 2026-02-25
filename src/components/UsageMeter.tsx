@@ -17,12 +17,12 @@ export function UsageMeter() {
 
   const planLabel =
     usage.plan === "free"
-      ? "Free Trial"
+      ? "Free"
       : usage.plan === "casual"
-        ? "Casual Chatter"
-        : usage.plan === "daily"
-          ? "Daily Listener"
-          : "Power Podcaster";
+        ? "Casual"
+        : usage.plan === "regular"
+          ? "Regular"
+          : "Deep";
 
   return (
     <div className="w-full max-w-xs mx-auto">

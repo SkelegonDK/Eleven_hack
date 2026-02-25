@@ -19,17 +19,17 @@ function getConvexClient(): ConvexHttpClient {
  * Map Clerk Billing plan slugs to our internal plan names.
  * Update these slugs to match what you configure in Clerk Dashboard.
  */
-const CLERK_PLAN_MAP: Record<string, "casual" | "daily" | "power"> = {
+const CLERK_PLAN_MAP: Record<string, "casual" | "regular" | "deep"> = {
   // Clerk plan slugs (set these in Clerk Dashboard → Billing → Plans)
+  casual: "casual",
   casual_chatter: "casual",
   "casual-chatter": "casual",
-  casual: "casual",
-  daily_listener: "daily",
-  "daily-listener": "daily",
-  daily: "daily",
-  power_podcaster: "power",
-  "power-podcaster": "power",
-  power: "power",
+  regular: "regular",
+  regular_listener: "regular",
+  "regular-listener": "regular",
+  deep: "deep",
+  deep_diver: "deep",
+  "deep-diver": "deep",
 };
 
 /**
