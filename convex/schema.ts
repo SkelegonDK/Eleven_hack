@@ -7,8 +7,8 @@ export default defineSchema({
     plan: v.union(
       v.literal("free"),
       v.literal("casual"),
-      v.literal("daily"),
-      v.literal("power")
+      v.literal("regular"),
+      v.literal("deep")
     ),
     minutesUsed: v.number(),
     freeTrialMinutesUsed: v.number(),

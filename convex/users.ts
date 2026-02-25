@@ -5,8 +5,8 @@ import { query, mutation } from "./_generated/server";
 export const PLAN_LIMITS: Record<string, number> = {
   free: 5,
   casual: 30,
-  daily: 120,
-  power: 300,
+  regular: 120,
+  deep: 300,
 };
 
 /** Get or create a user record by Clerk ID */
@@ -145,8 +145,8 @@ export const updatePlan = mutation({
     plan: v.union(
       v.literal("free"),
       v.literal("casual"),
-      v.literal("daily"),
-      v.literal("power")
+      v.literal("regular"),
+      v.literal("deep")
     ),
   },
   handler: async (ctx, { clerkId, plan }) => {
