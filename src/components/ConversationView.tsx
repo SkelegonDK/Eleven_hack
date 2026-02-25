@@ -18,22 +18,22 @@ interface ConversationViewProps {
 
 const modeStyles = {
   fun: {
-    gradient: "from-amber-400/20 via-orange-500/20 to-red-500/20",
-    border: "border-orange-500/30",
-    text: "text-orange-400",
-    bg: "bg-orange-500",
+    gradient: "from-pink-400/20 via-pink-500/20 to-rose-500/20",
+    border: "border-pink-500/30",
+    text: "text-pink-400",
+    bg: "bg-pink-500",
   },
   edu: {
-    gradient: "from-cyan-400/20 via-teal-500/20 to-emerald-500/20",
-    border: "border-teal-500/30",
-    text: "text-teal-400",
-    bg: "bg-teal-500",
+    gradient: "from-sky-400/20 via-blue-500/20 to-blue-600/20",
+    border: "border-blue-500/30",
+    text: "text-blue-400",
+    bg: "bg-blue-500",
   },
   deep: {
-    gradient: "from-violet-400/20 via-purple-500/20 to-indigo-600/20",
-    border: "border-violet-500/30",
-    text: "text-violet-400",
-    bg: "bg-violet-500",
+    gradient: "from-purple-400/20 via-purple-500/20 to-violet-600/20",
+    border: "border-purple-500/30",
+    text: "text-purple-400",
+    bg: "bg-purple-500",
   },
 };
 

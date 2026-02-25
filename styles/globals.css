@@ -1,5 +1,8 @@
-/* Import distinctive fonts - must be first */
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+/* Import Uncut Sans font */
+@import "@fontsource/uncut-sans/400.css";
+@import "@fontsource/uncut-sans/500.css";
+@import "@fontsource/uncut-sans/600.css";
+@import "@fontsource/uncut-sans/700.css";
 
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -7,8 +10,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-display: 'Syne', sans-serif;
-  --font-mono: 'Space Mono', monospace;
+  --font-display: 'Uncut Sans', sans-serif;
+  --font-mono: 'Uncut Sans', sans-serif;
   
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -65,43 +68,43 @@
   --card-foreground: oklch(0.95 0.01 280);
   --popover: oklch(0.14 0.02 280);
   --popover-foreground: oklch(0.95 0.01 280);
-  --primary: oklch(0.75 0.18 180);
-  --primary-foreground: oklch(0.12 0.02 280);
+  --primary: oklch(0.87 0.18 170);
+  --primary-foreground: oklch(0.12 0.02 170);
   --secondary: oklch(0.22 0.03 280);
   --secondary-foreground: oklch(0.9 0.01 280);
   --muted: oklch(0.2 0.025 280);
   --muted-foreground: oklch(0.65 0.02 280);
-  --accent: oklch(0.7 0.2 320);
-  --accent-foreground: oklch(0.12 0.02 280);
+  --accent: oklch(0.92 0.19 100);
+  --accent-foreground: oklch(0.12 0.02 100);
   --destructive: oklch(0.65 0.25 25);
   --border: oklch(0.28 0.04 280);
   --input: oklch(0.22 0.03 280);
-  --ring: oklch(0.75 0.18 180);
+  --ring: oklch(0.87 0.18 170);
   
-  /* Mode Colors */
-  --fun: oklch(0.75 0.22 45);
-  --fun-foreground: oklch(0.15 0.02 45);
-  --edu: oklch(0.72 0.18 180);
-  --edu-foreground: oklch(0.12 0.02 180);
-  --deep: oklch(0.65 0.2 290);
-  --deep-foreground: oklch(0.95 0.01 290);
-  
+  /* Mode Colors - Candy Pop */
+  --fun: oklch(0.68 0.24 345);
+  --fun-foreground: oklch(0.15 0.02 345);
+  --edu: oklch(0.73 0.18 230);
+  --edu-foreground: oklch(0.12 0.02 230);
+  --deep: oklch(0.58 0.22 295);
+  --deep-foreground: oklch(0.95 0.01 295);
+
   /* Charts */
-  --chart-1: oklch(0.75 0.22 45);
-  --chart-2: oklch(0.72 0.18 180);
-  --chart-3: oklch(0.65 0.2 290);
-  --chart-4: oklch(0.7 0.2 320);
-  --chart-5: oklch(0.68 0.16 140);
-  
+  --chart-1: oklch(0.68 0.24 345);
+  --chart-2: oklch(0.73 0.18 230);
+  --chart-3: oklch(0.58 0.22 295);
+  --chart-4: oklch(0.92 0.19 100);
+  --chart-5: oklch(0.87 0.18 170);
+
   /* Sidebar */
   --sidebar: oklch(0.14 0.02 280);
   --sidebar-foreground: oklch(0.95 0.01 280);
-  --sidebar-primary: oklch(0.75 0.18 180);
+  --sidebar-primary: oklch(0.87 0.18 170);
   --sidebar-primary-foreground: oklch(0.12 0.02 280);
   --sidebar-accent: oklch(0.22 0.03 280);
   --sidebar-accent-foreground: oklch(0.95 0.01 280);
   --sidebar-border: oklch(0.28 0.04 280);
-  --sidebar-ring: oklch(0.75 0.18 180);
+  --sidebar-ring: oklch(0.87 0.18 170);
 }
 
 @layer base {
@@ -110,7 +113,7 @@
   }
   
   html {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Uncut Sans', sans-serif;
   }
   
   body {
@@ -122,44 +125,44 @@
 /* PODU Custom Utilities */
 @layer utilities {
   .font-display {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Uncut Sans', sans-serif;
   }
-  
+
   .font-mono {
-    font-family: 'Space Mono', monospace;
+    font-family: 'Uncut Sans', sans-serif;
   }
   
   .text-gradient-fun {
-    background: linear-gradient(135deg, oklch(0.8 0.25 35), oklch(0.7 0.22 55));
+    background: linear-gradient(135deg, oklch(0.73 0.26 350), oklch(0.63 0.22 340));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  
+
   .text-gradient-edu {
-    background: linear-gradient(135deg, oklch(0.75 0.2 170), oklch(0.7 0.18 190));
+    background: linear-gradient(135deg, oklch(0.78 0.2 225), oklch(0.68 0.18 235));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  
+
   .text-gradient-deep {
-    background: linear-gradient(135deg, oklch(0.7 0.22 280), oklch(0.6 0.2 300));
+    background: linear-gradient(135deg, oklch(0.63 0.24 290), oklch(0.53 0.20 300));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  
+
   .glow-fun {
-    box-shadow: 0 0 20px oklch(0.75 0.22 45 / 0.4), 0 0 40px oklch(0.75 0.22 45 / 0.2);
+    box-shadow: 0 0 20px oklch(0.68 0.24 345 / 0.4), 0 0 40px oklch(0.68 0.24 345 / 0.2);
   }
-  
+
   .glow-edu {
-    box-shadow: 0 0 20px oklch(0.72 0.18 180 / 0.4), 0 0 40px oklch(0.72 0.18 180 / 0.2);
+    box-shadow: 0 0 20px oklch(0.73 0.18 230 / 0.4), 0 0 40px oklch(0.73 0.18 230 / 0.2);
   }
-  
+
   .glow-deep {
-    box-shadow: 0 0 20px oklch(0.65 0.2 290 / 0.4), 0 0 40px oklch(0.65 0.2 290 / 0.2);
+    box-shadow: 0 0 20px oklch(0.58 0.22 295 / 0.4), 0 0 40px oklch(0.58 0.22 295 / 0.2);
   }
 }
 

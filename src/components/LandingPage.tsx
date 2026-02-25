@@ -52,27 +52,27 @@ function usePrefersReducedMotion(): boolean {
 const getModeColor = (mode: ConversationMode): string => {
   switch (mode) {
     case "fun":
-      return "#ff8800"; // orange/amber
+      return "#F15BB5"; // pink
     case "edu":
-      return "#00ffff"; // cyan
+      return "#00BBF9"; // blue
     case "deep":
-      return "#aa00ff"; // violet/purple
+      return "#9B5DE5"; // purple
     default:
-      return "#00ffff"; // default to cyan
+      return "#00F5D4"; // mint
   }
 };
 
 // Map subject IDs to hex colors (using the "from" color from gradient)
 const getSubjectColor = (subjectId: string): string => {
   const colorMap: Record<string, string> = {
-    tech: "#06b6d4", // cyan-500
+    tech: "#00BBF9", // blue
     science: "#22c55e", // green-500
-    history: "#f59e0b", // amber-500
-    philosophy: "#a855f7", // purple-500
+    history: "#FEE440", // yellow
+    philosophy: "#9B5DE5", // purple
     business: "#94a3b8", // slate-400
-    health: "#f43f5e", // rose-500
+    health: "#F15BB5", // pink
     arts: "#d946ef", // fuchsia-500
-    upload: "#6366f1", // indigo-500
+    upload: "#9B5DE5", // purple
   };
   return colorMap[subjectId] || "#3A29FF"; // default color
 };
@@ -80,7 +80,7 @@ const getSubjectColor = (subjectId: string): string => {
 // Get Aurora colors based on selected subjects
 const getAuroraColors = (selectedSubjects: string[]): string[] => {
   if (selectedSubjects.length === 0) {
-    return ["#3A29FF", "#FF94B4", "#FF3232"]; // default colors
+    return ["#F15BB5", "#00BBF9", "#9B5DE5"]; // default colors
   }
   
   const colors = selectedSubjects.map(getSubjectColor);
@@ -102,7 +102,7 @@ interface LandingPageProps {
 export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: LandingPageProps = {}) {
   const { getToken } = useAuth();
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
-  const [selectedMode, setSelectedMode] = useState<ConversationMode>("edu");
+  const [selectedMode, setSelectedMode] = useState<ConversationMode>("fun");
   const [isLoading, setIsLoading] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [showConversation, setShowConversation] = useState(false);
