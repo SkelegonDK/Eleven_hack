@@ -1,12 +1,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 import { SubjectSelector } from "./SubjectSelector";
 import { ModeSelector, type ConversationMode } from "./ModeSelector";
 import { PlayButton } from "./PlayButton";
 import { ConversationView } from "./ConversationView";
 import { Button } from "./ui/button";
 import { AlertCircle } from "lucide-react";
-import { SignedIn, UserButton } from "@clerk/clerk-react";
+import { SignedIn, UserButton, useAuth } from "@clerk/clerk-react";
+import { UsageMeter } from "./UsageMeter";
 import LightRays from "./LightRays";
 import Aurora from './Aurora';
 
@@ -98,6 +100,7 @@ interface LandingPageProps {
 }
 
 export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: LandingPageProps = {}) {
+  const { getToken } = useAuth();
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [selectedMode, setSelectedMode] = useState<ConversationMode>("edu");
   const [isLoading, setIsLoading] = useState(false);
@@ -129,7 +132,7 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
     
     try {
       // Create or get an agent for this conversation
-      const response = await fetch("/api/agents", {
+      const response = await authFetch(getToken, "/api/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -234,7 +237,8 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <UsageMeter />
             <SignedIn>
               <UserButton />
             </SignedIn>
