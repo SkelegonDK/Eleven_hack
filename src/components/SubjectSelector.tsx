@@ -24,7 +24,7 @@ export interface Subject {
 const subjects: Subject[] = [
   { id: "tech", name: "Technology & AI", icon: <Cpu className="w-5 h-5" />, color: "from-cyan-500 to-blue-600" },
   { id: "science", name: "Science & Nature", icon: <Leaf className="w-5 h-5" />, color: "from-green-500 to-emerald-600" },
-  { id: "history", name: "History & Culture", icon: <BookOpen className="w-5 h-5" />, color: "from-amber-500 to-orange-600" },
+  { id: "history", name: "History & Culture", icon: <BookOpen className="w-5 h-5" />, color: "from-yellow-400 to-amber-500" },
   { id: "philosophy", name: "Philosophy & Ethics", icon: <Brain className="w-5 h-5" />, color: "from-purple-500 to-violet-600" },
   { id: "business", name: "Business", icon: <TrendingUp className="w-5 h-5" />, color: "from-slate-400 to-zinc-500" },
   { id: "health", name: "Health & Wellness", icon: <Heart className="w-5 h-5" />, color: "from-rose-500 to-pink-600" },
@@ -82,16 +82,8 @@ export function SubjectSelector({
     }
   };
 
-  // Sort subjects: pinned first, then selected, then rest
-  const sortedSubjects = [...subjects].sort((a, b) => {
-    if (a.id === pinnedSubject) return -1;
-    if (b.id === pinnedSubject) return 1;
-    const aSelected = selected.includes(a.id);
-    const bSelected = selected.includes(b.id);
-    if (aSelected && !bSelected) return -1;
-    if (!aSelected && bSelected) return 1;
-    return 0;
-  });
+  // Keep original order - no reordering on selection
+  const sortedSubjects = subjects;
 
   // Add upload subject at the end
   const uploadSubject: Subject = {

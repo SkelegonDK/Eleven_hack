@@ -80,7 +80,7 @@ export function SaasLandingPage() {
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <LightRays
           raysOrigin="top-center"
-          raysColor="#00ffff"
+          raysColor="#00F5D4"
           raysSpeed={1}
           lightSpread={0.8}
           rayLength={1.5}
@@ -332,7 +332,7 @@ export function SaasLandingPage() {
               <div className="relative aspect-square rounded-[3rem] overflow-hidden border border-border/50 bg-background/50 backdrop-blur-xl p-1">
                 <div className="w-full h-full rotate-180">
                   <Aurora
-                    colorStops={["#00ffff", "#aa00ff", "#ff8800"]}
+                    colorStops={["#00F5D4", "#9B5DE5", "#F15BB5"]}
                     blend={0.5}
                     amplitude={1.2}
                     speed={0.5}
@@ -350,7 +350,7 @@ export function SaasLandingPage() {
         <div className="absolute inset-0 z-0">
           <div className="absolute bottom-0 left-0 right-0 h-full overflow-hidden pointer-events-none rotate-180 opacity-50">
             <Aurora
-              colorStops={["#00ffff", "#aa00ff", "#ff8800"]}
+              colorStops={["#00F5D4", "#9B5DE5", "#F15BB5"]}
               blend={0.5}
               amplitude={1.0}
               speed={0.3}

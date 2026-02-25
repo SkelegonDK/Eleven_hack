@@ -7,7 +7,7 @@
 
   body {
     @apply min-w-[320px] min-h-screen relative m-0 bg-background text-foreground;
-    font-family: 'Syne', sans-serif;
+    font-family: 'Uncut Sans', sans-serif;
   }
 }
 

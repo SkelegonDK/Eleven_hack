@@ -12,19 +12,19 @@ interface PlayButtonProps {
 
 const modeStyles = {
   fun: {
-    gradient: "from-amber-400 via-orange-500 to-red-500",
-    glow: "shadow-[0_0_60px_rgba(251,146,60,0.5)]",
-    pulseColor: "bg-orange-500/30",
+    gradient: "from-pink-400 via-pink-500 to-rose-500",
+    glow: "shadow-[0_0_60px_rgba(241,91,181,0.5)]",
+    pulseColor: "bg-pink-500/30",
   },
   edu: {
-    gradient: "from-cyan-400 via-teal-500 to-emerald-500",
-    glow: "shadow-[0_0_60px_rgba(20,184,166,0.5)]",
-    pulseColor: "bg-teal-500/30",
+    gradient: "from-sky-400 via-blue-500 to-blue-600",
+    glow: "shadow-[0_0_60px_rgba(0,187,249,0.5)]",
+    pulseColor: "bg-blue-500/30",
   },
   deep: {
-    gradient: "from-violet-400 via-purple-500 to-indigo-600",
-    glow: "shadow-[0_0_60px_rgba(139,92,246,0.5)]",
-    pulseColor: "bg-violet-500/30",
+    gradient: "from-purple-400 via-purple-500 to-violet-600",
+    glow: "shadow-[0_0_60px_rgba(155,93,229,0.5)]",
+    pulseColor: "bg-purple-500/30",
   },
 };
 

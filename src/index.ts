@@ -472,4 +472,4 @@ const server = serve({
   },
 });
 
-console.log(`🎙️ PODU server running at ${server.url}`);
+console.log(`PODU server running at ${server.url}`);
