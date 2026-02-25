@@ -131,6 +131,8 @@ const result = await Bun.build({
   sourcemap: "linked",
   define: {
     "process.env.NODE_ENV": JSON.stringify("production"),
+    "import.meta.env.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY": JSON.stringify(process.env.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY || ""),
+    "import.meta.env.VITE_CONVEX_URL": JSON.stringify(process.env.CONVEX_URL || ""),
   },
   ...cliConfig,
 });

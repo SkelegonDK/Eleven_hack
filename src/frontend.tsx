@@ -7,27 +7,38 @@
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { ClerkProvider } from "@clerk/clerk-react";
+import { ClerkProvider, useAuth } from "@clerk/clerk-react";
+import { ConvexProviderWithClerk } from "convex/react-clerk";
+import { ConvexReactClient } from "convex/react";
 import "./index.css";
 import { App } from "./App";
 
 // Get the Clerk key using the official Vite pattern
 // See: https://clerk.com/docs/quickstarts/react
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const PUBLISHABLE_KEY = import.meta.env.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY;
 if (!PUBLISHABLE_KEY) {
   throw new Error("Missing Clerk Publishable Key");
 }
 
+const CONVEX_URL = import.meta.env.VITE_CONVEX_URL;
+if (!CONVEX_URL) {
+  throw new Error("Missing Convex URL");
+}
+
+const convex = new ConvexReactClient(CONVEX_URL);
+
 const elem = document.getElementById("root")!;
 const app = (
   <StrictMode>
-    <ClerkProvider 
-      publishableKey={PUBLISHABLE_KEY} 
+    <ClerkProvider
+      publishableKey={PUBLISHABLE_KEY}
       afterSignOutUrl="/"
       signInFallbackRedirectUrl="/"
       signUpFallbackRedirectUrl="/"
     >
-      <App />
+      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+        <App />
+      </ConvexProviderWithClerk>
     </ClerkProvider>
   </StrictMode>
 );

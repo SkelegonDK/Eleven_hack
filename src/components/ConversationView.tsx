@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useConversation } from "@elevenlabs/react";
+import { useAuth } from "@clerk/clerk-react";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 import { PlayButton } from "./PlayButton";
 import type { ConversationMode } from "./ModeSelector";
 import { X, Volume2, VolumeX, Mic, AlertCircle } from "lucide-react";
@@ -49,17 +51,39 @@ export function ConversationView({
   subjectCount,
   onClose
 }: ConversationViewProps) {
+  const { getToken } = useAuth();
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const [startError, setStartError] = useState<string | null>(null);
   const styles = modeStyles[mode];
   const conversationRef = useRef<ReturnType<typeof useConversation> | null>(null);
+  const conversationStartTime = useRef<number | null>(null);
+
+  const reportUsage = useCallback(async () => {
+    if (!conversationStartTime.current) return;
+    const durationSeconds = Math.round((Date.now() - conversationStartTime.current) / 1000);
+    conversationStartTime.current = null;
+    if (durationSeconds < 1) return;
+
+    try {
+      await authFetch(getToken, "/api/usage/record", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ durationSeconds, mode, agentId }),
+      });
+    } catch (error) {
+      console.error("Failed to report usage:", error);
+    }
+  }, [getToken, mode, agentId]);
 
   const conversation = useConversation({
     onConnect: () => {
       setStartError(null);
+      conversationStartTime.current = Date.now();
     },
-    onDisconnect: () => {},
+    onDisconnect: () => {
+      reportUsage();
+    },
     onMessage: () => {},
     onError: (error: unknown) => {
       const message = typeof error === "object" && error !== null && "message" in error && typeof (error as Error).message === "string"
@@ -81,7 +105,7 @@ export function ConversationView({
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
       // Fetch conversation token for WebRTC
-      const tokenRes = await fetch(`/api/agents/${agentId}/conversation-token`);
+      const tokenRes = await authFetch(getToken, `/api/agents/${agentId}/conversation-token`);
       if (!tokenRes.ok) {
         const errorData = await tokenRes.json().catch(() => ({}));
         throw new Error(errorData.error || "Failed to get conversation token");
