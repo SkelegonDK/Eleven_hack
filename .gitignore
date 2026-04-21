@@ -145,4 +145,8 @@ dist
 test-results/
 playwright-report/
 playwright/.cache/
-/.planning
+# GSD (Get Shit Done) planning artifacts
+/.planning/
+/.gsd/
+**/.planning/
+**/.gsd/
