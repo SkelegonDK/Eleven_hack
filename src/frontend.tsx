@@ -28,6 +28,7 @@ if (!CONVEX_URL) {
 const convex = new ConvexReactClient(CONVEX_URL);
 
 const elem = document.getElementById("root")!;
+
 const app = (
   <StrictMode>
     <ClerkProvider

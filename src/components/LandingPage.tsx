@@ -1,6 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { authFetch } from "@/lib/authFetch";
 import { SubjectSelector } from "./SubjectSelector";
 import { ModeSelector, type ConversationMode } from "./ModeSelector";
 import { PlayButton } from "./PlayButton";
@@ -9,6 +8,7 @@ import { Button } from "./ui/button";
 import { AlertCircle } from "lucide-react";
 import { SignedIn, UserButton, useAuth } from "@clerk/clerk-react";
 import { UsageMeter } from "./UsageMeter";
+import { authFetch } from "@/lib/authFetch";
 import LightRays from "./LightRays";
 import Aurora from './Aurora';
 
@@ -26,7 +26,7 @@ function usePrefersReducedMotion(): boolean {
     if (typeof window === "undefined") return;
 
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    
+
     // Set initial value
     setPrefersReducedMotion(mediaQuery.matches);
 
@@ -82,14 +82,14 @@ const getAuroraColors = (selectedSubjects: string[]): string[] => {
   if (selectedSubjects.length === 0) {
     return ["#F15BB5", "#00BBF9", "#9B5DE5"]; // default colors
   }
-  
+
   const colors = selectedSubjects.map(getSubjectColor);
-  
+
   // Pad to 3 colors if needed
   while (colors.length < 3) {
     colors.push(colors[colors.length - 1] || "#3A29FF");
   }
-  
+
   // Return only first 3 colors
   return colors.slice(0, 3);
 };
@@ -109,30 +109,35 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
   const [agentId, setAgentId] = useState<string | null>(null);
   const [agentSystemPrompt, setAgentSystemPrompt] = useState<string | null>(null);
   const [agentFirstMessage, setAgentFirstMessage] = useState<string | null>(null);
-  
+
   // Runtime state for disabling heavy effects (can be toggled by user or set via prop)
   const [disableHeavyEffectsState, setDisableHeavyEffectsState] = useState(false);
-  
+
   // SSR-safe detection of prefers-reduced-motion
   const prefersReducedMotion = usePrefersReducedMotion();
-  
+
   // Combine all sources: prop, state, or user preference
   const shouldReduceMotion = prefersReducedMotion || disableHeavyEffectsProp || disableHeavyEffectsState;
 
   const canStart = selectedSubjects.length > 0;
-  
+
   // Compute Aurora colors based on selected subjects
   const auroraColors = useMemo(() => getAuroraColors(selectedSubjects), [selectedSubjects]);
 
+  const apiFetch = useCallback(
+    (url: string, init?: RequestInit) => authFetch(getToken, url, init),
+    [getToken]
+  );
+
   const handleStart = async () => {
     if (!canStart) return;
-    
+
     setStartError(null);
     setIsLoading(true);
-    
+
     try {
       // Create or get an agent for this conversation
-      const response = await authFetch(getToken, "/api/agents", {
+      const response = await apiFetch("/api/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -140,12 +145,12 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
           subjects: selectedSubjects,
         }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || "Failed to start conversation");
       }
-      
+
       const data = await response.json();
       setAgentId(data.agentId);
       setAgentSystemPrompt(data.systemPrompt);
@@ -221,9 +226,9 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
             <div className="relative">
               <div className="absolute inset-0 rounded-xl bg-white blur-lg opacity-50" />
               <div className="relative p-3 rounded-xl bg-white">
-                <img 
-                  src="/assets/podu-logo.png" 
-                  alt="PODU Logo" 
+                <img
+                  src="/assets/podu-logo.png"
+                  alt="PODU Logo"
                   className="w-[60px] h-[60px] object-contain"
                 />
               </div>
@@ -279,7 +284,7 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
                 Select at least one subject to start
               </p>
             )}
-            
+
             {/* Error message */}
             {startError && (
               <div className="flex flex-col items-center gap-2 w-full max-w-md">
@@ -298,7 +303,7 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
                 </Button>
               </div>
             )}
-            
+
             {/* Play button */}
             <PlayButton
               mode={selectedMode}
@@ -312,4 +317,3 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
     </div>
   );
 }
-

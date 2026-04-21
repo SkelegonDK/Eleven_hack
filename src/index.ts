@@ -59,13 +59,13 @@ async function authenticateRequest(req: Request): Promise<string | null> {
   }
 }
 
-/** Middleware: require auth and return 401 if not authenticated */
+/** Middleware: require Clerk auth and return 401 if not authenticated */
 async function requireAuth(req: Request): Promise<{ userId: string } | Response> {
   const userId = await authenticateRequest(req);
-  if (!userId) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (userId) {
+    return { userId };
   }
-  return { userId };
+  return Response.json({ error: "Unauthorized" }, { status: 401 });
 }
 
 // Cache the HTML template at startup

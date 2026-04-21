@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
-import { useAuth } from "@clerk/clerk-react";
+import { useState, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@clerk/clerk-react";
 import { authFetch } from "@/lib/authFetch";
 import { Upload, File, X, Loader2, CheckCircle2 } from "lucide-react";
 
@@ -21,6 +21,11 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const apiFetch = useCallback(
+    (url: string, init?: RequestInit) => authFetch(getToken, url, init),
+    [getToken]
+  );
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -31,7 +36,7 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
     if (!files) return;
 
     const fileArray = Array.from(files);
-    
+
     // Create initial document entries
     const newDocs: UploadedDocument[] = fileArray.map((file) => ({
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -50,22 +55,22 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
     for (let i = 0; i < fileArray.length; i++) {
       const file = fileArray[i];
       const doc = newDocs[i];
-      
+
       try {
         const formData = new FormData();
         formData.append("file", file);
-        
-        const response = await authFetch(getToken, "/api/documents", {
+
+        const response = await apiFetch("/api/documents", {
           method: "POST",
           body: formData,
         });
-        
+
         if (!response.ok) {
           throw new Error("Upload failed");
         }
-        
+
         const result = await response.json();
-        
+
         setDocuments((prev) => {
           const updated = prev.map((d) =>
             d.id === doc.id ? { ...d, id: result.id, status: "success" as const } : d
@@ -93,10 +98,10 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
       onDocumentsChange?.(updated);
       return updated;
     });
-    
+
     // Delete from server
     try {
-      await authFetch(getToken, `/api/documents/${id}`, {
+      await apiFetch(`/api/documents/${id}`, {
         method: "DELETE",
       });
     } catch (error) {
@@ -187,7 +192,7 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
             >
               <div className={cn(
                 "p-1.5 rounded-md",
-                doc.status === "success" 
+                doc.status === "success"
                   ? "bg-green-500/20 text-green-500"
                   : doc.status === "error"
                   ? "bg-destructive/20 text-destructive"
@@ -231,4 +236,3 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
-import { useAuth } from "@clerk/clerk-react";
+import { useState, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@clerk/clerk-react";
 import { authFetch } from "@/lib/authFetch";
 import { Upload, File, X, Loader2, CheckCircle2 } from "lucide-react";
 import {
@@ -34,6 +34,11 @@ export function UploadDialog({
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const apiFetch = useCallback(
+    (url: string, init?: RequestInit) => authFetch(getToken, url, init),
+    [getToken]
+  );
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -71,7 +76,7 @@ export function UploadDialog({
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await authFetch(getToken, "/api/documents", {
+        const response = await apiFetch("/api/documents", {
           method: "POST",
           body: formData,
         });
@@ -114,7 +119,7 @@ export function UploadDialog({
 
     // Delete from server
     try {
-      await authFetch(getToken, `/api/documents/${id}`, {
+      await apiFetch(`/api/documents/${id}`, {
         method: "DELETE",
       });
     } catch (error) {
@@ -230,8 +235,8 @@ export function UploadDialog({
                       {doc.name}
                     </p>
                     <p className="font-mono text-[10px] text-muted-foreground">
-                      {doc.status === "error" 
-                        ? "Upload failed" 
+                      {doc.status === "error"
+                        ? "Upload failed"
                         : formatFileSize(doc.size)}
                     </p>
                   </div>
@@ -259,4 +264,3 @@ export function UploadDialog({
     </Dialog>
   );
 }
-

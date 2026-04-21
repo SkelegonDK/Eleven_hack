@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useConversation } from "@elevenlabs/react";
-import { useAuth } from "@clerk/clerk-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@clerk/clerk-react";
 import { authFetch } from "@/lib/authFetch";
 import { PlayButton } from "./PlayButton";
 import type { ConversationMode } from "./ModeSelector";
@@ -49,7 +49,7 @@ export function ConversationView({
   systemPrompt,
   firstMessage,
   subjectCount,
-  onClose
+  onClose,
 }: ConversationViewProps) {
   const { getToken } = useAuth();
   const [isMuted, setIsMuted] = useState(false);
@@ -59,6 +59,11 @@ export function ConversationView({
   const conversationRef = useRef<ReturnType<typeof useConversation> | null>(null);
   const conversationStartTime = useRef<number | null>(null);
 
+  const apiFetch = useCallback(
+    (url: string, init?: RequestInit) => authFetch(getToken, url, init),
+    [getToken]
+  );
+
   const reportUsage = useCallback(async () => {
     if (!conversationStartTime.current) return;
     const durationSeconds = Math.round((Date.now() - conversationStartTime.current) / 1000);
@@ -66,7 +71,7 @@ export function ConversationView({
     if (durationSeconds < 1) return;
 
     try {
-      await authFetch(getToken, "/api/usage/record", {
+      await apiFetch("/api/usage/record", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ durationSeconds, mode, agentId }),
@@ -74,7 +79,7 @@ export function ConversationView({
     } catch (error) {
       console.error("Failed to report usage:", error);
     }
-  }, [getToken, mode, agentId]);
+  }, [apiFetch, mode, agentId]);
 
   const conversation = useConversation({
     onConnect: () => {
@@ -105,7 +110,7 @@ export function ConversationView({
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
       // Fetch conversation token for WebRTC
-      const tokenRes = await authFetch(getToken, `/api/agents/${agentId}/conversation-token`);
+      const tokenRes = await apiFetch(`/api/agents/${agentId}/conversation-token`);
       if (!tokenRes.ok) {
         const errorData = await tokenRes.json().catch(() => ({}));
         throw new Error(errorData.error || "Failed to get conversation token");
@@ -129,7 +134,7 @@ export function ConversationView({
       const message = error instanceof Error ? error.message : "Failed to start conversation";
       setStartError(message);
     }
-  }, [conversation, agentId, systemPrompt, firstMessage]);
+  }, [conversation, agentId, systemPrompt, firstMessage, apiFetch]);
 
   const stopConversation = useCallback(async () => {
     await conversation.endSession();
