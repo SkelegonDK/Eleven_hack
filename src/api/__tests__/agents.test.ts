@@ -125,7 +125,7 @@ describe("getAgentForMode", () => {
   it("throws for unconfigured mode", async () => {
     delete process.env.ELEVENLABS_AGENT_ID_FUN;
     await expect(getAgentForMode({ mode: "fun", subjects: [] })).rejects.toThrow(
-      "No agent ID configured for mode: fun"
+      "No agent ID configured for FUN mode"
     );
   });
 });
@@ -136,7 +136,7 @@ describe("getConversationToken", () => {
       new Response(JSON.stringify({ token: "test_token_123" }), { status: 200 })
     );
 
-    const token = await getConversationToken("agent_123");
+    const token = await getConversationToken("agent_123", "test_api_key");
 
     expect(mockFetch).toHaveBeenCalledWith(
       "https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=agent_123",
@@ -153,19 +153,30 @@ describe("getConversationToken", () => {
   });
 
   it("throws when API key is missing", async () => {
-    delete process.env.ELEVENLABS_API_KEY;
-    await expect(getConversationToken("agent_123")).rejects.toThrow(
-      "ELEVENLABS_API_KEY environment variable is not set"
+    await expect(getConversationToken("agent_123", null)).rejects.toThrow(
+      "No ElevenLabs API key is configured"
     );
   });
 
-  it("throws on non-OK response", async () => {
+  it("throws on 401 with invalid-key guidance", async () => {
     const mockFetch = spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response("Unauthorized", { status: 401 })
     );
 
-    await expect(getConversationToken("agent_123")).rejects.toThrow(
-      "Failed to get conversation token: 401"
+    await expect(getConversationToken("agent_123", "bad_key")).rejects.toThrow(
+      "ElevenLabs rejected the stored API key"
+    );
+
+    mockFetch.mockRestore();
+  });
+
+  it("throws on non-OK response", async () => {
+    const mockFetch = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("Server error", { status: 500 })
+    );
+
+    await expect(getConversationToken("agent_123", "good_key")).rejects.toThrow(
+      "ElevenLabs returned HTTP 500"
     );
 
     mockFetch.mockRestore();
@@ -176,7 +187,7 @@ describe("getConversationToken", () => {
       new Response(JSON.stringify({ token: "my_token" }), { status: 200 })
     );
 
-    const token = await getConversationToken("agent_456");
+    const token = await getConversationToken("agent_456", "test_api_key");
     expect(token).toBe("my_token");
 
     mockFetch.mockRestore();

@@ -1,0 +1,162 @@
+import type { ConversationMode } from "../components/ModeSelector";
+import { readSession, writeSessionCookie, clearSessionCookie, resolveApiKey } from "../lib/session";
+
+const AGENT_ID_ENV_VARS: Record<ConversationMode, string> = {
+  fun: "ELEVENLABS_AGENT_ID_FUN",
+  edu: "ELEVENLABS_AGENT_ID_EDU",
+  deep: "ELEVENLABS_AGENT_ID_DEEP",
+};
+
+export interface ConfigStatus {
+  hasApiKey: boolean;
+  apiKeySource: "session" | "env" | "none";
+  apiKeyPreview: string | null;
+  agentIds: Record<ConversationMode, boolean>;
+  missingAgentModes: ConversationMode[];
+}
+
+function mask(key: string): string {
+  if (key.length <= 8) return "•".repeat(key.length);
+  return `${key.slice(0, 4)}…${key.slice(-4)}`;
+}
+
+export async function getConfigStatus(req: Request): Promise<ConfigStatus> {
+  const session = await readSession(req);
+  const sessionKey = session.apiKey ?? null;
+  const envKey = process.env.ELEVENLABS_API_KEY ?? null;
+  const activeKey = sessionKey ?? envKey;
+
+  const agentIds = {
+    fun: !!process.env[AGENT_ID_ENV_VARS.fun],
+    edu: !!process.env[AGENT_ID_ENV_VARS.edu],
+    deep: !!process.env[AGENT_ID_ENV_VARS.deep],
+  };
+
+  const missingAgentModes = (Object.keys(agentIds) as ConversationMode[]).filter(
+    (mode) => !agentIds[mode],
+  );
+
+  return {
+    hasApiKey: !!activeKey,
+    apiKeySource: sessionKey ? "session" : envKey ? "env" : "none",
+    apiKeyPreview: activeKey ? mask(activeKey) : null,
+    agentIds,
+    missingAgentModes,
+  };
+}
+
+export async function verifyApiKey(apiKey: string): Promise<{
+  ok: boolean;
+  status: number;
+  message: string;
+}> {
+  try {
+    const response = await fetch("https://api.elevenlabs.io/v1/user", {
+      method: "GET",
+      headers: { "xi-api-key": apiKey },
+    });
+
+    if (response.ok) {
+      return { ok: true, status: 200, message: "API key verified." };
+    }
+
+    if (response.status === 401) {
+      return {
+        ok: false,
+        status: 401,
+        message:
+          "ElevenLabs rejected the key. Double-check it in your ElevenLabs dashboard under Profile → API Keys.",
+      };
+    }
+
+    if (response.status === 429) {
+      return {
+        ok: false,
+        status: 429,
+        message:
+          "ElevenLabs rate-limited the verification request. Wait a moment and try again.",
+      };
+    }
+
+    return {
+      ok: false,
+      status: response.status,
+      message: `ElevenLabs returned HTTP ${response.status} when verifying the key.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      message:
+        error instanceof Error
+          ? `Could not reach ElevenLabs: ${error.message}`
+          : "Could not reach ElevenLabs.",
+    };
+  }
+}
+
+export async function handleSetApiKey(req: Request): Promise<Response> {
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json(
+      { error: "Request body must be JSON with an 'apiKey' field." },
+      { status: 400 },
+    );
+  }
+
+  const apiKey =
+    typeof body === "object" && body !== null && "apiKey" in body
+      ? String((body as { apiKey?: unknown }).apiKey ?? "").trim()
+      : "";
+
+  if (!apiKey) {
+    return Response.json(
+      { error: "Provide your ElevenLabs API key." },
+      { status: 400 },
+    );
+  }
+
+  if (!/^[A-Za-z0-9_-]{16,}$/.test(apiKey)) {
+    return Response.json(
+      {
+        error:
+          "That doesn't look like an ElevenLabs key. Expected a long alphanumeric string (no spaces).",
+      },
+      { status: 400 },
+    );
+  }
+
+  const verification = await verifyApiKey(apiKey);
+  if (!verification.ok) {
+    return Response.json(
+      { error: verification.message },
+      { status: verification.status === 0 ? 502 : verification.status },
+    );
+  }
+
+  const cookie = await writeSessionCookie({ apiKey });
+  return new Response(
+    JSON.stringify({ ok: true, preview: mask(apiKey) }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Set-Cookie": cookie,
+      },
+    },
+  );
+}
+
+export function handleClearApiKey(): Response {
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Set-Cookie": clearSessionCookie(),
+    },
+  });
+}
+
+export { resolveApiKey };

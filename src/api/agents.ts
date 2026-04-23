@@ -47,13 +47,28 @@ export function resolveSubjectNames(subjectIds: string[]): string[] {
   return subjectIds.map(id => SUBJECT_NAMES[id] || id);
 }
 
+export class ConfigError extends Error {
+  code: "missing_api_key" | "missing_agent_id" | "invalid_api_key" | "upstream_error";
+  constructor(
+    code: "missing_api_key" | "missing_agent_id" | "invalid_api_key" | "upstream_error",
+    message: string,
+  ) {
+    super(message);
+    this.code = code;
+    this.name = "ConfigError";
+  }
+}
+
 export async function getAgentForMode(request: GetAgentRequest): Promise<GetAgentResponse> {
   const { mode, subjects } = request;
   const envVar = AGENT_ID_ENV_VARS[mode];
   const agentId = process.env[envVar];
 
   if (!agentId) {
-    throw new Error(`No agent ID configured for mode: ${mode}. Set ELEVENLABS_AGENT_ID_${mode.toUpperCase()} in your .env file.`);
+    throw new ConfigError(
+      "missing_agent_id",
+      `No agent ID configured for ${mode.toUpperCase()} mode. Set ${envVar} in .env so the server can reach your ElevenLabs agent.`,
+    );
   }
 
   const subjectNames = resolveSubjectNames(subjects);
@@ -63,11 +78,15 @@ export async function getAgentForMode(request: GetAgentRequest): Promise<GetAgen
   return { agentId, systemPrompt, firstMessage };
 }
 
-export async function getConversationToken(agentId: string): Promise<string> {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
-
+export async function getConversationToken(
+  agentId: string,
+  apiKey: string | null,
+): Promise<string> {
   if (!apiKey) {
-    throw new Error("ELEVENLABS_API_KEY environment variable is not set");
+    throw new ConfigError(
+      "missing_api_key",
+      "No ElevenLabs API key is configured. Open Settings and paste your key to continue.",
+    );
   }
 
   const response = await fetch(
@@ -80,8 +99,18 @@ export async function getConversationToken(agentId: string): Promise<string> {
     }
   );
 
+  if (response.status === 401) {
+    throw new ConfigError(
+      "invalid_api_key",
+      "ElevenLabs rejected the stored API key. Update it in Settings.",
+    );
+  }
+
   if (!response.ok) {
-    throw new Error(`Failed to get conversation token: ${response.status}`);
+    throw new ConfigError(
+      "upstream_error",
+      `ElevenLabs returned HTTP ${response.status} when requesting the conversation token.`,
+    );
   }
 
   const data = (await response.json()) as { token: string };

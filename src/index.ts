@@ -1,6 +1,6 @@
 import { serve } from "bun";
 import plugin from "bun-plugin-tailwind";
-import { getAgentForMode, getConversationToken } from "./api/agents";
+import { ConfigError, getAgentForMode, getConversationToken } from "./api/agents";
 import {
   uploadDocument,
   getDocument,
@@ -8,13 +8,33 @@ import {
   listDocuments,
   parseDocumentContent,
 } from "./api/knowledgebase";
+import {
+  getConfigStatus,
+  handleSetApiKey,
+  handleClearApiKey,
+  resolveApiKey,
+} from "./api/config";
+import { readSession } from "./lib/session";
 
 const port = Number(process.env.PORT ?? 3000);
 const hostname = process.env.HOST ?? "127.0.0.1";
 
 if (!process.env.ELEVENLABS_API_KEY) {
   console.warn(
-    "Warning: ELEVENLABS_API_KEY not set. Set it in .env before starting a conversation.",
+    "Note: ELEVENLABS_API_KEY not set in env. Users can enter their key in the app Settings panel instead.",
+  );
+}
+
+function configErrorResponse(err: ConfigError): Response {
+  const statusMap = {
+    missing_api_key: 401,
+    invalid_api_key: 401,
+    missing_agent_id: 500,
+    upstream_error: 502,
+  } as const;
+  return Response.json(
+    { error: err.message, code: err.code },
+    { status: statusMap[err.code] },
   );
 }
 
@@ -25,6 +45,24 @@ const server = serve({
   port,
   hostname,
   routes: {
+    "/api/config": {
+      async GET(req) {
+        try {
+          const status = await getConfigStatus(req);
+          return Response.json(status);
+        } catch (error) {
+          console.error("Error reading config:", error);
+          return Response.json({ error: "Failed to read config" }, { status: 500 });
+        }
+      },
+      async POST(req) {
+        return handleSetApiKey(req);
+      },
+      async DELETE() {
+        return handleClearApiKey();
+      },
+    },
+
     "/api/agents": {
       async POST(req) {
         try {
@@ -32,6 +70,7 @@ const server = serve({
           const result = await getAgentForMode(body);
           return Response.json(result);
         } catch (error) {
+          if (error instanceof ConfigError) return configErrorResponse(error);
           console.error("Error getting agent:", error);
           return Response.json(
             { error: error instanceof Error ? error.message : "Failed to get agent" },
@@ -44,9 +83,12 @@ const server = serve({
     "/api/agents/:agentId/conversation-token": {
       async GET(req) {
         try {
-          const token = await getConversationToken(req.params.agentId);
+          const session = await readSession(req);
+          const apiKey = resolveApiKey(session);
+          const token = await getConversationToken(req.params.agentId, apiKey);
           return Response.json({ token });
         } catch (error) {
+          if (error instanceof ConfigError) return configErrorResponse(error);
           console.error("Error getting conversation token:", error);
           return Response.json(
             { error: error instanceof Error ? error.message : "Failed to get conversation token" },
