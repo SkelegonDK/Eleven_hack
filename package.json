@@ -1,5 +1,5 @@
 {
-  "name": "bun-react-template",
+  "name": "podu",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,25 +15,20 @@
     "audit:agents": "bun run src/api/auditAgents.cli.ts"
   },
   "dependencies": {
-    "@ai-sdk/react": "^2.0.112",
-    "@clerk/backend": "^2.32.1",
-    "@clerk/clerk-react": "^5.59.2",
     "@elevenlabs/react": "^0.14.1",
     "@fontsource/uncut-sans": "^5.2.5",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.3",
-    "ai": "^5.0.110",
     "bun-plugin-tailwind": "^0.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "convex": "^1.32.0",
+    "iron-session": "^8.0.4",
     "lucide-react": "^0.545.0",
     "ogl": "^1.0.11",
     "react": "^19",
     "react-dom": "^19",
-    "svix": "^1.86.0",
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {

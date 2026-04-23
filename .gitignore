@@ -2,7 +2,7 @@
 .DS_Store
 
 # Vercel serverless stubs (not canonical — Bun server in src/ is the backend)
-api/
+/api/
 
 # Logs
 logs
@@ -157,3 +157,4 @@ podu.db-journal
 /.gsd/
 **/.planning/
 **/.gsd/
+.podu-session-secret
