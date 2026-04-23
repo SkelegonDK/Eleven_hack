@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useConversation } from "@elevenlabs/react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@clerk/clerk-react";
-import { authFetch } from "@/lib/authFetch";
 import { PlayButton } from "./PlayButton";
 import type { ConversationMode } from "./ModeSelector";
 import { X, Volume2, VolumeX, Mic, AlertCircle } from "lucide-react";
@@ -51,44 +49,17 @@ export function ConversationView({
   subjectCount,
   onClose,
 }: ConversationViewProps) {
-  const { getToken } = useAuth();
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const [startError, setStartError] = useState<string | null>(null);
   const styles = modeStyles[mode];
   const conversationRef = useRef<ReturnType<typeof useConversation> | null>(null);
-  const conversationStartTime = useRef<number | null>(null);
-
-  const apiFetch = useCallback(
-    (url: string, init?: RequestInit) => authFetch(getToken, url, init),
-    [getToken]
-  );
-
-  const reportUsage = useCallback(async () => {
-    if (!conversationStartTime.current) return;
-    const durationSeconds = Math.round((Date.now() - conversationStartTime.current) / 1000);
-    conversationStartTime.current = null;
-    if (durationSeconds < 1) return;
-
-    try {
-      await apiFetch("/api/usage/record", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ durationSeconds, mode, agentId }),
-      });
-    } catch (error) {
-      console.error("Failed to report usage:", error);
-    }
-  }, [apiFetch, mode, agentId]);
 
   const conversation = useConversation({
     onConnect: () => {
       setStartError(null);
-      conversationStartTime.current = Date.now();
     },
-    onDisconnect: () => {
-      reportUsage();
-    },
+    onDisconnect: () => {},
     onMessage: () => {},
     onError: (error: unknown) => {
       const message = typeof error === "object" && error !== null && "message" in error && typeof (error as Error).message === "string"
@@ -110,7 +81,7 @@ export function ConversationView({
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
       // Fetch conversation token for WebRTC
-      const tokenRes = await apiFetch(`/api/agents/${agentId}/conversation-token`);
+      const tokenRes = await fetch(`/api/agents/${agentId}/conversation-token`);
       if (!tokenRes.ok) {
         const errorData = await tokenRes.json().catch(() => ({}));
         throw new Error(errorData.error || "Failed to get conversation token");
@@ -134,7 +105,7 @@ export function ConversationView({
       const message = error instanceof Error ? error.message : "Failed to start conversation";
       setStartError(message);
     }
-  }, [conversation, agentId, systemPrompt, firstMessage, apiFetch]);
+  }, [conversation, agentId, systemPrompt, firstMessage]);
 
   const stopConversation = useCallback(async () => {
     await conversation.endSession();

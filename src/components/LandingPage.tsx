@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { SubjectSelector } from "./SubjectSelector";
 import { ModeSelector, type ConversationMode } from "./ModeSelector";
@@ -6,9 +6,6 @@ import { PlayButton } from "./PlayButton";
 import { ConversationView } from "./ConversationView";
 import { Button } from "./ui/button";
 import { AlertCircle } from "lucide-react";
-import { SignedIn, UserButton, useAuth } from "@clerk/clerk-react";
-import { UsageMeter } from "./UsageMeter";
-import { authFetch } from "@/lib/authFetch";
 import LightRays from "./LightRays";
 import Aurora from './Aurora';
 
@@ -100,7 +97,6 @@ interface LandingPageProps {
 }
 
 export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: LandingPageProps = {}) {
-  const { getToken } = useAuth();
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [selectedMode, setSelectedMode] = useState<ConversationMode>("fun");
   const [isLoading, setIsLoading] = useState(false);
@@ -124,11 +120,6 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
   // Compute Aurora colors based on selected subjects
   const auroraColors = useMemo(() => getAuroraColors(selectedSubjects), [selectedSubjects]);
 
-  const apiFetch = useCallback(
-    (url: string, init?: RequestInit) => authFetch(getToken, url, init),
-    [getToken]
-  );
-
   const handleStart = async () => {
     if (!canStart) return;
 
@@ -137,7 +128,7 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
 
     try {
       // Create or get an agent for this conversation
-      const response = await apiFetch("/api/agents", {
+      const response = await fetch("/api/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -241,12 +232,6 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
                 Interactive Podcast
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <UsageMeter />
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
           </div>
         </div>
       </header>

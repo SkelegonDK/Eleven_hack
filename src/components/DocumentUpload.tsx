@@ -1,7 +1,5 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@clerk/clerk-react";
-import { authFetch } from "@/lib/authFetch";
 import { Upload, File, X, Loader2, CheckCircle2 } from "lucide-react";
 
 interface UploadedDocument {
@@ -16,15 +14,9 @@ interface DocumentUploadProps {
 }
 
 export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
-  const { getToken } = useAuth();
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const apiFetch = useCallback(
-    (url: string, init?: RequestInit) => authFetch(getToken, url, init),
-    [getToken]
-  );
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -60,7 +52,7 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await apiFetch("/api/documents", {
+        const response = await fetch("/api/documents", {
           method: "POST",
           body: formData,
         });
@@ -101,7 +93,7 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
 
     // Delete from server
     try {
-      await apiFetch(`/api/documents/${id}`, {
+      await fetch(`/api/documents/${id}`, {
         method: "DELETE",
       });
     } catch (error) {
