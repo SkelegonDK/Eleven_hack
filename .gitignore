@@ -145,6 +145,13 @@ dist
 test-results/
 playwright-report/
 playwright/.cache/
+
+# bun:sqlite local database files
+podu.db
+podu.db-shm
+podu.db-wal
+podu.db-journal
+
 # GSD (Get Shit Done) planning artifacts
 /.planning/
 /.gsd/
