@@ -1,16 +1,15 @@
 /**
- * Wrapper around fetch that includes the Clerk session token
- * for authenticated API requests.
+ * Phase 1 stub: passes through fetch without auth.
+ *
+ * Signature is preserved so existing callers (DocumentUpload, UploadDialog,
+ * LandingPage, ConversationView) compile unchanged. The `getToken` parameter
+ * is ignored in Phase 1. Phase 2 will delete this file and switch callers to
+ * plain `fetch()` once `requireSession` replaces the per-call token model.
  */
 export async function authFetch(
-  getToken: () => Promise<string | null>,
+  _getToken: () => Promise<string | null>,
   url: string,
-  init?: RequestInit
+  init?: RequestInit,
 ): Promise<Response> {
-  const token = await getToken();
-  const headers = new Headers(init?.headers);
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-  return fetch(url, { ...init, headers });
+  return fetch(url, init);
 }
