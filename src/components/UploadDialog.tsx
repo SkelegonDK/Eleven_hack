@@ -15,6 +15,22 @@ interface UploadedDocument {
   name: string;
   size: number;
   status: "uploading" | "success" | "error";
+  /**
+   * The server's explanation for this specific file, when it sent one (e.g.
+   * "notes.pdf: only .txt and .md files are supported."). Undefined for
+   * failures with nothing useful to say, which fall back to generic copy.
+   */
+  errorMessage?: string;
+}
+
+/** Carries the server's per-file explanation from the fetch to the catch. */
+class UploadError extends Error {
+  readonly serverMessage: string | undefined;
+  constructor(serverMessage?: string) {
+    super(serverMessage ?? "Upload failed");
+    this.name = "UploadError";
+    this.serverMessage = serverMessage;
+  }
 }
 
 interface UploadDialogProps {
@@ -74,7 +90,15 @@ export function UploadDialog({
         });
 
         if (!response.ok) {
-          throw new Error("Upload failed");
+          // A rejection the server can explain (unsupported type, empty file)
+          // carries a `code` alongside a sentence written for this file. Show
+          // that sentence; anything else gets the generic fallback.
+          const body = await response.json().catch(() => null);
+          throw new UploadError(
+            typeof body?.code === "string" && typeof body?.error === "string"
+              ? body.error
+              : undefined,
+          );
         }
 
         const result = await response.json();
@@ -90,9 +114,13 @@ export function UploadDialog({
         });
       } catch (error) {
         console.error("Error uploading file:", error);
+        const serverMessage =
+          error instanceof UploadError ? error.serverMessage : undefined;
         setDocuments((prev) => {
           const updated = prev.map((d) =>
-            d.id === doc.id ? { ...d, status: "error" as const } : d
+            d.id === doc.id
+              ? { ...d, status: "error" as const, errorMessage: serverMessage }
+              : d
           );
           onDocumentsChange?.(updated);
           return updated;
@@ -141,7 +169,7 @@ export function UploadDialog({
         <DialogHeader>
           <DialogTitle>Upload Documents</DialogTitle>
           <DialogDescription>
-            Upload PDF, TXT, MD, or DOC files to add to your knowledge base
+            Upload TXT or MD files to add to your knowledge base
           </DialogDescription>
         </DialogHeader>
 
@@ -166,7 +194,7 @@ export function UploadDialog({
               ref={fileInputRef}
               type="file"
               multiple
-              accept=".pdf,.txt,.md,.doc,.docx"
+              accept=".txt,.md"
               className="hidden"
               onChange={(e) => handleFiles(e.target.files)}
             />
@@ -187,7 +215,7 @@ export function UploadDialog({
                 Drop files or tap to upload
               </p>
               <p className="font-mono text-xs text-muted-foreground mt-1">
-                PDF, TXT, MD, DOC supported
+                TXT, MD supported
               </p>
             </div>
           </div>
@@ -228,7 +256,7 @@ export function UploadDialog({
                     </p>
                     <p className="font-mono text-[10px] text-muted-foreground">
                       {doc.status === "error"
-                        ? "Upload failed"
+                        ? doc.errorMessage ?? "Upload failed"
                         : formatFileSize(doc.size)}
                     </p>
                   </div>

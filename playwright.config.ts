@@ -1,4 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -47,6 +49,13 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: {
     command: "PORT=3000 bun --hot src/index.ts",
+    /**
+     * Uploads that slip past a page.route mock reach the real POST
+     * /api/documents and are written to SQLite. Point the e2e server at a
+     * throwaway database so a test run can't append to the developer's real
+     * ./podu.db document library.
+     */
+    env: { PODU_DB_PATH: join(tmpdir(), "podu-e2e.db") },
     url: "http://127.0.0.1:3000/api/health",
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

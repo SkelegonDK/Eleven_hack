@@ -1,6 +1,6 @@
 import type { ConversationMode } from "../components/ModeSelector";
 import { AGENT_PROMPTS } from "./agentPrompts";
-import { getDocumentsContext } from "./knowledgebase";
+import { renderDocumentsContext, type StoredDocument } from "./knowledgebase";
 import { fetchElevenLabsJson, type ElevenLabsFailure } from "./elevenlabsClient";
 
 // Subject ID → display name mapping (must match SubjectSelector)
@@ -24,6 +24,12 @@ const AGENT_ID_ENV_VARS: Record<ConversationMode, string> = {
 export interface GetAgentRequest {
   mode: ConversationMode;
   subjects: string[];
+  /**
+   * The documents to inject into the system prompt. Passed in rather than read
+   * from storage here so prompt construction stays a pure function of its
+   * arguments — src/index.ts is the one place that loads them.
+   */
+  documents: readonly StoredDocument[];
 }
 
 export interface GetAgentResponse {
@@ -32,16 +38,27 @@ export interface GetAgentResponse {
   firstMessage: string;
 }
 
-export function buildFullPrompt(mode: ConversationMode, subjectNames: string[]): string {
+export function buildFullPrompt(
+  mode: ConversationMode,
+  subjectNames: string[],
+  documents: readonly StoredDocument[],
+): string {
   const basePrompt = AGENT_PROMPTS[mode].systemPrompt;
 
   const topicSection = subjectNames.length > 0
     ? `\n\nTOPIC FOCUS (NON-NEGOTIABLE):\nThe user has selected these specific topics: ${subjectNames.join(", ")}.\n- Discuss ONLY these topics.\n- Do NOT bring up artificial intelligence, machine learning, or any subject not in the list above, even tangentially.\n- If the conversation drifts off-topic, steer it back to the selected topics.`
     : "";
 
-  const documentsContext = getDocumentsContext();
+  const prompt = basePrompt + topicSection + renderDocumentsContext(documents);
 
-  return basePrompt + topicSection + documentsContext;
+  // ElevenLabs silently DISCARDS an empty prompt override, which would hand the
+  // caller a conversation running on the dashboard's default persona with no
+  // error anywhere. Fail loudly instead.
+  if (prompt.trim().length === 0) {
+    throw new Error(`buildFullPrompt produced an empty system prompt for mode "${mode}"`);
+  }
+
+  return prompt;
 }
 
 export function resolveSubjectNames(subjectIds: string[]): string[] {
@@ -61,7 +78,7 @@ export class ConfigError extends Error {
 }
 
 export async function getAgentForMode(request: GetAgentRequest): Promise<GetAgentResponse> {
-  const { mode, subjects } = request;
+  const { mode, subjects, documents } = request;
   const envVar = AGENT_ID_ENV_VARS[mode];
   const agentId = process.env[envVar];
 
@@ -73,7 +90,7 @@ export async function getAgentForMode(request: GetAgentRequest): Promise<GetAgen
   }
 
   const subjectNames = resolveSubjectNames(subjects);
-  const systemPrompt = buildFullPrompt(mode, subjectNames);
+  const systemPrompt = buildFullPrompt(mode, subjectNames, documents);
   const firstMessage = AGENT_PROMPTS[mode].buildFirstMessage(subjectNames);
 
   return { agentId, systemPrompt, firstMessage };

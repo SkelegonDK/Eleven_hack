@@ -4,3 +4,4 @@ env = "BUN_PUBLIC_*"
 
 [test]
 root = "./src"
+preload = ["./src/test-setup.ts"]

@@ -1,105 +1,140 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import {
-  uploadDocument,
+  saveDocument,
   getDocument,
   deleteDocument,
   listDocuments,
-  getDocumentsContext,
-  parseDocumentContent,
+  loadDocumentsForPrompt,
+  renderDocumentsContext,
+  parseDocument,
+  SUPPORTED_EXTENSIONS,
+  type StoredDocument,
 } from "../knowledgebase";
 
-// Clean up all documents before each test
-beforeEach(async () => {
-  const docs = await listDocuments();
-  for (const doc of docs) {
-    await deleteDocument(doc.id);
+// These tests run against the real bun:sqlite layer, pointed at :memory: by
+// src/test-setup.ts. The database is per-process, so rows survive between
+// tests unless cleared here.
+beforeEach(() => {
+  for (const doc of listDocuments()) {
+    deleteDocument(doc.id);
   }
 });
 
-describe("uploadDocument", () => {
-  it("stores document and returns metadata", async () => {
-    const result = await uploadDocument({ name: "test.txt", content: "Hello world" });
+function doc(overrides: Partial<StoredDocument> = {}): StoredDocument {
+  return {
+    id: "d1",
+    name: "test.txt",
+    content: "Test document content",
+    uploadedAt: "2026-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
 
-    expect(result.id).toBeTruthy();
+describe("saveDocument", () => {
+  it("stores the document and returns its metadata", () => {
+    const result = saveDocument({ name: "test.txt", content: "Hello world" });
+
     expect(result.id).toStartWith("doc-");
     expect(result.name).toBe("test.txt");
     expect(result.uploadedAt).toBeTruthy();
   });
 
-  it("generates unique IDs for each document", async () => {
-    const doc1 = await uploadDocument({ name: "a.txt", content: "A" });
-    const doc2 = await uploadDocument({ name: "b.txt", content: "B" });
+  it("records uploadedAt as a valid ISO-8601 timestamp", () => {
+    const result = saveDocument({ name: "test.txt", content: "Hello" });
 
-    expect(doc1.id).not.toBe(doc2.id);
+    expect(result.uploadedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(new Date(result.uploadedAt).toISOString()).toBe(result.uploadedAt);
+  });
+
+  it("generates unique IDs for each document", () => {
+    const first = saveDocument({ name: "a.txt", content: "A" });
+    const second = saveDocument({ name: "b.txt", content: "B" });
+
+    expect(first.id).not.toBe(second.id);
   });
 });
 
 describe("getDocument", () => {
-  it("retrieves a stored document by ID", async () => {
-    const uploaded = await uploadDocument({ name: "test.txt", content: "Content here" });
-    const doc = await getDocument(uploaded.id);
+  it("round-trips a saved document through the database", () => {
+    const saved = saveDocument({ name: "test.txt", content: "Content here" });
+    const found = getDocument(saved.id);
 
-    expect(doc).not.toBeNull();
-    expect(doc!.id).toBe(uploaded.id);
-    expect(doc!.name).toBe("test.txt");
-    expect(doc!.content).toBe("Content here");
+    expect(found).not.toBeNull();
+    expect(found!.id).toBe(saved.id);
+    expect(found!.name).toBe("test.txt");
+    expect(found!.content).toBe("Content here");
+    expect(found!.uploadedAt).toBe(saved.uploadedAt);
   });
 
-  it("returns null for non-existent ID", async () => {
-    const doc = await getDocument("doc-nonexistent");
-    expect(doc).toBeNull();
+  it("returns null for a non-existent ID", () => {
+    expect(getDocument("doc-nonexistent")).toBeNull();
   });
 });
 
 describe("deleteDocument", () => {
-  it("removes document and returns true", async () => {
-    const uploaded = await uploadDocument({ name: "test.txt", content: "Content" });
-    const deleted = await deleteDocument(uploaded.id);
+  it("removes the document and reports true", () => {
+    const saved = saveDocument({ name: "test.txt", content: "Content" });
 
-    expect(deleted).toBe(true);
-
-    const doc = await getDocument(uploaded.id);
-    expect(doc).toBeNull();
+    expect(deleteDocument(saved.id)).toBe(true);
+    expect(getDocument(saved.id)).toBeNull();
   });
 
-  it("returns false for non-existent ID", async () => {
-    const deleted = await deleteDocument("doc-nonexistent");
-    expect(deleted).toBe(false);
+  it("reports false for a non-existent ID", () => {
+    expect(deleteDocument("doc-nonexistent")).toBe(false);
   });
 });
 
 describe("listDocuments", () => {
-  it("returns all documents without content", async () => {
-    await uploadDocument({ name: "a.txt", content: "Content A" });
-    await uploadDocument({ name: "b.txt", content: "Content B" });
+  it("returns metadata for every stored document", () => {
+    saveDocument({ name: "a.txt", content: "Content A" });
+    saveDocument({ name: "b.txt", content: "Content B" });
 
-    const docs = await listDocuments();
+    const docs = listDocuments();
 
     expect(docs).toHaveLength(2);
-    expect(docs[0]!.name).toBeTruthy();
-    expect(docs[1]!.name).toBeTruthy();
-    // Should NOT include content field
-    expect((docs[0] as any).content).toBeUndefined();
-    expect((docs[1] as any).content).toBeUndefined();
+    expect(docs.map((d) => d.name).sort()).toEqual(["a.txt", "b.txt"]);
   });
 
-  it("returns empty array when no documents exist", async () => {
-    const docs = await listDocuments();
-    expect(docs).toHaveLength(0);
+  it("never includes document content", () => {
+    saveDocument({ name: "a.txt", content: "Secret body" });
+
+    const docs = listDocuments();
+
+    expect(docs[0]).not.toHaveProperty("content");
+    expect(JSON.stringify(docs)).not.toContain("Secret body");
+  });
+
+  it("returns an empty array when no documents exist", () => {
+    expect(listDocuments()).toHaveLength(0);
   });
 });
 
-describe("getDocumentsContext", () => {
-  it("returns empty string when no documents exist", () => {
-    const context = getDocumentsContext();
-    expect(context).toBe("");
+describe("loadDocumentsForPrompt", () => {
+  it("returns full documents including content", () => {
+    saveDocument({ name: "notes.txt", content: "Some notes" });
+
+    const docs = loadDocumentsForPrompt();
+
+    expect(docs).toHaveLength(1);
+    expect(docs[0]!.name).toBe("notes.txt");
+    expect(docs[0]!.content).toBe("Some notes");
   });
 
-  it("includes all document names and content", async () => {
-    await uploadDocument({ name: "notes.txt", content: "Some notes" });
-    await uploadDocument({ name: "research.md", content: "Research data" });
+  it("returns an empty array when no documents exist", () => {
+    expect(loadDocumentsForPrompt()).toEqual([]);
+  });
+});
 
-    const context = getDocumentsContext();
+describe("renderDocumentsContext", () => {
+  it("returns an empty string for an empty library", () => {
+    expect(renderDocumentsContext([])).toBe("");
+  });
+
+  it("includes every document's name and content", () => {
+    const context = renderDocumentsContext([
+      doc({ id: "d1", name: "notes.txt", content: "Some notes" }),
+      doc({ id: "d2", name: "research.md", content: "Research data" }),
+    ]);
 
     expect(context).toContain("reference documents");
     expect(context).toContain("notes.txt");
@@ -108,48 +143,113 @@ describe("getDocumentsContext", () => {
     expect(context).toContain("Research data");
   });
 
-  it("formats documents with separators", async () => {
-    await uploadDocument({ name: "doc1.txt", content: "First" });
-
-    const context = getDocumentsContext();
+  it("formats documents with separators", () => {
+    const context = renderDocumentsContext([doc({ name: "doc1.txt", content: "First" })]);
     expect(context).toContain("--- Document: doc1.txt ---");
+  });
+
+  it("is pure — it reads nothing from storage", () => {
+    saveDocument({ name: "stored.txt", content: "Stored body" });
+
+    expect(renderDocumentsContext([])).toBe("");
   });
 });
 
-describe("parseDocumentContent", () => {
-  it("handles .txt files", async () => {
+describe("parseDocument", () => {
+  it("reads .txt files", async () => {
     const file = new File(["Hello, text file!"], "test.txt", { type: "text/plain" });
-    const content = await parseDocumentContent(file);
-    expect(content).toBe("Hello, text file!");
+    const result = await parseDocument(file);
+
+    expect(result.ok).toBe(true);
+    expect(result).toMatchObject({ ok: true, name: "test.txt", content: "Hello, text file!" });
   });
 
-  it("handles .md files", async () => {
+  it("reads .md files", async () => {
     const file = new File(["# Markdown heading"], "readme.md", { type: "text/markdown" });
-    const content = await parseDocumentContent(file);
-    expect(content).toBe("# Markdown heading");
+    const result = await parseDocument(file);
+
+    expect(result).toMatchObject({ ok: true, name: "readme.md", content: "# Markdown heading" });
   });
 
-  it("returns placeholder for .pdf files", async () => {
+  it("is case-insensitive about the extension", async () => {
+    const file = new File(["Shouty"], "NOTES.TXT", { type: "text/plain" });
+    const result = await parseDocument(file);
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects .pdf files as an unsupported type", async () => {
     const file = new File(["fake pdf"], "document.pdf", { type: "application/pdf" });
-    const content = await parseDocumentContent(file);
-    expect(content).toContain("PDF");
-    expect(content).toContain("document.pdf");
-    expect(content).toContain("not yet implemented");
+    const result = await parseDocument(file);
+
+    expect(result).toEqual({
+      ok: false,
+      name: "document.pdf",
+      reason: "unsupported_type",
+      extension: "pdf",
+      supported: SUPPORTED_EXTENSIONS,
+    });
   });
 
-  it("returns placeholder for .docx files", async () => {
+  it("rejects .docx files as an unsupported type", async () => {
     const file = new File(["fake docx"], "report.docx", {
       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
-    const content = await parseDocumentContent(file);
-    expect(content).toContain("Word");
-    expect(content).toContain("report.docx");
-    expect(content).toContain("not yet implemented");
+    const result = await parseDocument(file);
+
+    expect(result).toMatchObject({ ok: false, reason: "unsupported_type", extension: "docx" });
   });
 
-  it("handles unknown extensions as text", async () => {
+  it("rejects unknown extensions instead of reading them as text", async () => {
     const file = new File(["arbitrary content"], "data.csv", { type: "text/csv" });
-    const content = await parseDocumentContent(file);
-    expect(content).toBe("arbitrary content");
+    const result = await parseDocument(file);
+
+    expect(result).toMatchObject({ ok: false, reason: "unsupported_type", extension: "csv" });
+  });
+
+  it("rejects a file with no extension", async () => {
+    const file = new File(["plain"], "README", { type: "text/plain" });
+    const result = await parseDocument(file);
+
+    expect(result).toMatchObject({ ok: false, reason: "unsupported_type", extension: "" });
+  });
+
+  it("rejects an empty file", async () => {
+    const file = new File([""], "empty.txt", { type: "text/plain" });
+    const result = await parseDocument(file);
+
+    expect(result).toEqual({ ok: false, name: "empty.txt", reason: "empty_file" });
+  });
+
+  it("rejects a nameless file as empty (Bun drops the filename on a zero-byte part)", async () => {
+    const nameless = {
+      name: undefined,
+      text: async () => "",
+    } as unknown as File;
+
+    expect(await parseDocument(nameless)).toMatchObject({ ok: false, reason: "empty_file" });
+  });
+
+  it("rejects a whitespace-only file", async () => {
+    const file = new File(["   \n\t  "], "blank.md", { type: "text/markdown" });
+    const result = await parseDocument(file);
+
+    expect(result).toMatchObject({ ok: false, reason: "empty_file" });
+  });
+});
+
+describe("parse → save → prompt", () => {
+  it("carries an uploaded file's content all the way into the prompt fragment", async () => {
+    const file = new File(["Round trip body"], "round-trip.md", { type: "text/markdown" });
+    const parsed = await parseDocument(file);
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+
+    saveDocument({ name: parsed.name, content: parsed.content });
+    const context = renderDocumentsContext(loadDocumentsForPrompt());
+
+    expect(context).toContain("--- Document: round-trip.md ---");
+    expect(context).toContain("Round trip body");
   });
 });

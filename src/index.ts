@@ -2,11 +2,13 @@ import { serve } from "bun";
 import plugin from "bun-plugin-tailwind";
 import { getAgentForMode, getConversationToken } from "./api/agents";
 import {
-  uploadDocument,
+  saveDocument,
   getDocument,
   deleteDocument,
   listDocuments,
-  parseDocumentContent,
+  loadDocumentsForPrompt,
+  parseDocument,
+  type ParseResult,
 } from "./api/knowledgebase";
 import {
   getConfigStatus,
@@ -29,6 +31,22 @@ if (!process.env.ELEVENLABS_API_KEY) {
 const htmlFile = Bun.file("./src/index.html");
 const htmlTemplate = await htmlFile.text();
 
+/**
+ * Turns a parse rejection into the sentence the upload dialog shows verbatim.
+ * The machine-readable `reason` still travels alongside it as `code`, so the
+ * client can branch without parsing prose.
+ */
+function rejectionMessage(rejection: Extract<ParseResult, { ok: false }>): string {
+  switch (rejection.reason) {
+    case "unsupported_type":
+      return `${rejection.name}: only ${rejection.supported
+        .map((ext) => `.${ext}`)
+        .join(" and ")} files are supported.`;
+    case "empty_file":
+      return `${rejection.name} is empty.`;
+  }
+}
+
 const server = serve({
   port,
   hostname,
@@ -42,7 +60,9 @@ const server = serve({
     "/api/agents": {
       POST: route("get agent", async (req) => {
         const body = await req.json();
-        return getAgentForMode(body);
+        // The composition point: the request says which mode and topics, the
+        // knowledgebase says which documents. agents.ts does neither lookup.
+        return getAgentForMode({ ...body, documents: loadDocumentsForPrompt() });
       }),
     },
 
@@ -63,10 +83,7 @@ const server = serve({
     },
 
     "/api/documents": {
-      GET: route("list documents", async () => {
-        const docs = await listDocuments();
-        return { documents: docs };
-      }),
+      GET: route("list documents", () => ({ documents: listDocuments() })),
       POST: route("upload document", async (req) => {
         const formData = await req.formData();
         const file = formData.get("file") as File | null;
@@ -75,19 +92,26 @@ const server = serve({
           return Response.json({ error: "No file provided" }, { status: 400 });
         }
 
-        const content = await parseDocumentContent(file);
-        return uploadDocument({ name: file.name, content });
+        const parsed = await parseDocument(file);
+        if (!parsed.ok) {
+          return Response.json(
+            { error: rejectionMessage(parsed), code: parsed.reason },
+            { status: 400 },
+          );
+        }
+
+        return saveDocument({ name: parsed.name, content: parsed.content });
       }),
     },
 
     "/api/documents/:id": {
-      GET: route<"/api/documents/:id">("get document", async (req) => {
-        const doc = await getDocument(req.params.id);
+      GET: route<"/api/documents/:id">("get document", (req) => {
+        const doc = getDocument(req.params.id);
         if (!doc) return Response.json({ error: "Document not found" }, { status: 404 });
         return doc;
       }),
-      DELETE: route<"/api/documents/:id">("delete document", async (req) => {
-        const deleted = await deleteDocument(req.params.id);
+      DELETE: route<"/api/documents/:id">("delete document", (req) => {
+        const deleted = deleteDocument(req.params.id);
         if (!deleted) return Response.json({ error: "Document not found" }, { status: 404 });
         return { success: true };
       }),

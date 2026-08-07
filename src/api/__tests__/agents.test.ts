@@ -51,43 +51,39 @@ describe("resolveSubjectNames", () => {
 
 describe("buildFullPrompt", () => {
   it("includes base system prompt for each mode", () => {
-    const prompt = buildFullPrompt("fun", []);
+    const prompt = buildFullPrompt("fun", [], []);
     expect(prompt).toContain("PODU");
     expect(prompt).toContain("Harry More");
   });
 
   it("includes topic restriction when subjects are provided", () => {
-    const prompt = buildFullPrompt("edu", ["Technology", "Science"]);
+    const prompt = buildFullPrompt("edu", ["Technology", "Science"], []);
     expect(prompt).toContain("TOPIC FOCUS (NON-NEGOTIABLE)");
     expect(prompt).toContain("Technology, Science");
     expect(prompt).toContain("Discuss ONLY these topics");
   });
 
   it("omits topic restriction when no subjects are provided", () => {
-    const prompt = buildFullPrompt("deep", []);
+    const prompt = buildFullPrompt("deep", [], []);
     expect(prompt).not.toContain("TOPIC FOCUS (NON-NEGOTIABLE)");
   });
 
-  it("includes document context when documents are uploaded", async () => {
-    // Upload a document first
-    const { uploadDocument } = await import("../knowledgebase");
-    await uploadDocument({ name: "test.txt", content: "Test document content" });
-
-    const prompt = buildFullPrompt("fun", ["Technology"]);
+  it("includes document context when documents are passed in", () => {
+    const prompt = buildFullPrompt("fun", ["Technology"], [
+      {
+        id: "d1",
+        name: "test.txt",
+        content: "Test document content",
+        uploadedAt: "2026-01-01T00:00:00Z",
+      },
+    ]);
     expect(prompt).toContain("reference documents");
     expect(prompt).toContain("test.txt");
     expect(prompt).toContain("Test document content");
-
-    // Clean up
-    const { listDocuments, deleteDocument } = await import("../knowledgebase");
-    const docs = await listDocuments();
-    for (const doc of docs) {
-      await deleteDocument(doc.id);
-    }
   });
 
-  it("omits document context when no documents are uploaded", () => {
-    const prompt = buildFullPrompt("edu", ["Science"]);
+  it("omits document context when no documents are passed in", () => {
+    const prompt = buildFullPrompt("edu", ["Science"], []);
     // Should not contain the document injection header
     expect(prompt).not.toContain("reference documents");
   });
@@ -95,22 +91,22 @@ describe("buildFullPrompt", () => {
 
 describe("getAgentForMode", () => {
   it("returns correct agent ID for fun mode", async () => {
-    const result = await getAgentForMode({ mode: "fun", subjects: [] });
+    const result = await getAgentForMode({ mode: "fun", subjects: [], documents: [] });
     expect(result.agentId).toBe(process.env.ELEVENLABS_AGENT_ID_FUN!);
   });
 
   it("returns correct agent ID for edu mode", async () => {
-    const result = await getAgentForMode({ mode: "edu", subjects: [] });
+    const result = await getAgentForMode({ mode: "edu", subjects: [], documents: [] });
     expect(result.agentId).toBe(process.env.ELEVENLABS_AGENT_ID_EDU!);
   });
 
   it("returns correct agent ID for deep mode", async () => {
-    const result = await getAgentForMode({ mode: "deep", subjects: [] });
+    const result = await getAgentForMode({ mode: "deep", subjects: [], documents: [] });
     expect(result.agentId).toBe(process.env.ELEVENLABS_AGENT_ID_DEEP!);
   });
 
   it("returns systemPrompt and firstMessage in response", async () => {
-    const result = await getAgentForMode({ mode: "fun", subjects: ["tech"] });
+    const result = await getAgentForMode({ mode: "fun", subjects: ["tech"], documents: [] });
     expect(result.systemPrompt).toBeTruthy();
     expect(result.firstMessage).toBeTruthy();
     expect(result.systemPrompt).toContain("PODU");
@@ -118,14 +114,14 @@ describe("getAgentForMode", () => {
   });
 
   it("includes topic restriction in systemPrompt when subjects given", async () => {
-    const result = await getAgentForMode({ mode: "edu", subjects: ["science", "history"] });
+    const result = await getAgentForMode({ mode: "edu", subjects: ["science", "history"], documents: [] });
     expect(result.systemPrompt).toContain("TOPIC FOCUS (NON-NEGOTIABLE)");
     expect(result.systemPrompt).toContain("Science, History");
   });
 
   it("throws for unconfigured mode", async () => {
     delete process.env.ELEVENLABS_AGENT_ID_FUN;
-    await expect(getAgentForMode({ mode: "fun", subjects: [] })).rejects.toThrow(
+    await expect(getAgentForMode({ mode: "fun", subjects: [], documents: [] })).rejects.toThrow(
       "No agent ID configured for FUN mode"
     );
   });
