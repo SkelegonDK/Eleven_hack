@@ -53,7 +53,7 @@ describe("buildFullPrompt", () => {
   it("includes base system prompt for each mode", () => {
     const prompt = buildFullPrompt("fun", []);
     expect(prompt).toContain("PODU");
-    expect(prompt).toContain("roast");
+    expect(prompt).toContain("Harry More");
   });
 
   it("includes topic restriction when subjects are provided", () => {

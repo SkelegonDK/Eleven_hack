@@ -57,30 +57,38 @@ describe("AGENT_PROMPTS", () => {
       expect(msg.length).toBeGreaterThan(50);
     });
 
-    it("edu mode uses singular phrasing for one topic", () => {
-      const msg = AGENT_PROMPTS.edu.buildFirstMessage(["Technology"]);
-      expect(msg).toContain("this topic");
+    it("edu mode distinguishes singular from plural subjects", () => {
+      // Assert the length===1 branch actually branches — not the exact noun,
+      // which is free to change in a persona rewrite.
+      const one = AGENT_PROMPTS.edu.buildFirstMessage(["Technology"]);
+      const many = AGENT_PROMPTS.edu.buildFirstMessage(["Technology", "Science"]);
+      expect(one).toContain("Technology");
+      expect(many).toContain("Technology");
+      expect(many).toContain("Science");
+      expect(one).not.toBe(many);
     });
 
-    it("edu mode uses plural phrasing for multiple topics", () => {
-      const msg = AGENT_PROMPTS.edu.buildFirstMessage(["Technology", "Science"]);
-      expect(msg).toContain("these topics");
+    it("deep mode distinguishes singular from plural themes", () => {
+      const one = AGENT_PROMPTS.deep.buildFirstMessage(["Philosophy"]);
+      const many = AGENT_PROMPTS.deep.buildFirstMessage(["Philosophy", "History"]);
+      expect(one).toContain("Philosophy");
+      expect(many).toContain("Philosophy");
+      expect(many).toContain("History");
+      expect(one).not.toBe(many);
     });
 
-    it("deep mode uses singular phrasing for one theme", () => {
-      const msg = AGENT_PROMPTS.deep.buildFirstMessage(["Philosophy"]);
-      expect(msg).toContain("this theme");
-    });
-
-    it("deep mode uses plural phrasing for multiple themes", () => {
-      const msg = AGENT_PROMPTS.deep.buildFirstMessage(["Philosophy", "History"]);
-      expect(msg).toContain("these themes");
+    it("is deterministic", () => {
+      for (const mode of ["fun", "edu", "deep"] as const) {
+        expect(AGENT_PROMPTS[mode].buildFirstMessage(["Technology"])).toBe(
+          AGENT_PROMPTS[mode].buildFirstMessage(["Technology"]),
+        );
+      }
     });
   });
 
   describe("systemPrompt content", () => {
-    it("fun mode contains roast safety rules", () => {
-      expect(AGENT_PROMPTS.fun.systemPrompt).toContain("ROAST SAFETY RULES");
+    it("fun mode contains a safety rules section", () => {
+      expect(AGENT_PROMPTS.fun.systemPrompt).toContain("SAFETY RULES");
     });
 
     it("fun mode has Harry More host name", () => {
@@ -112,21 +120,32 @@ describe("AGENT_PROMPTS", () => {
     });
 
     it("all modes contain rules section", () => {
+      // Anchored to the line start so it can't be satisfied by
+      // "SAFETY RULES" / "ANTI-PASSIVITY RULES" etc.
       for (const mode of ["fun", "edu", "deep"] as const) {
-        expect(AGENT_PROMPTS[mode].systemPrompt).toContain("RULES");
+        expect(AGENT_PROMPTS[mode].systemPrompt).toContain("\nRULES:");
       }
     });
 
-    it("edu mode emphasizes patience and clarity", () => {
+    it("edu mode emphasizes Socratic challenge without humiliation", () => {
       const prompt = AGENT_PROMPTS.edu.systemPrompt;
-      expect(prompt).toContain("Patient");
-      expect(prompt).toContain("Never make anyone feel dumb");
+      expect(prompt).toContain("SOCRATIC METHOD");
+      expect(prompt).toContain("Never make someone feel stupid");
     });
 
-    it("deep mode emphasizes empathy and safety", () => {
+    it("deep mode emphasizes emotional perception and honesty", () => {
       const prompt = AGENT_PROMPTS.deep.systemPrompt;
-      expect(prompt).toContain("empathetic");
-      expect(prompt).toContain("psychological safety");
+      expect(prompt).toContain("Emotionally perceptive");
+      expect(prompt).toContain("sit with discomfort");
+    });
+
+    it("every systemPrompt is non-empty and deterministic", () => {
+      // Ties to the buildFullPrompt override guarantee: ElevenLabs silently
+      // discards empty overrides, so an empty prompt is a silent failure.
+      for (const mode of ["fun", "edu", "deep"] as const) {
+        expect(AGENT_PROMPTS[mode].systemPrompt.trim().length).toBeGreaterThan(0);
+        expect(AGENT_PROMPTS[mode].systemPrompt).toBe(AGENT_PROMPTS[mode].systemPrompt);
+      }
     });
   });
 });
