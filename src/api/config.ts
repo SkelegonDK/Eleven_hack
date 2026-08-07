@@ -1,5 +1,6 @@
 import type { ConversationMode } from "../components/ModeSelector";
 import { readSession, writeSessionCookie, clearSessionCookie, resolveApiKey } from "../lib/session";
+import { sendElevenLabsRequest } from "./elevenlabsClient";
 
 const AGENT_ID_ENV_VARS: Record<ConversationMode, string> = {
   fun: "ELEVENLABS_AGENT_ID_FUN",
@@ -24,7 +25,7 @@ export async function getConfigStatus(req: Request): Promise<ConfigStatus> {
   const session = await readSession(req);
   const sessionKey = session.apiKey ?? null;
   const envKey = process.env.ELEVENLABS_API_KEY ?? null;
-  const activeKey = sessionKey ?? envKey;
+  const activeKey = resolveApiKey(session);
 
   const agentIds = {
     fun: !!process.env[AGENT_ID_ENV_VARS.fun],
@@ -50,48 +51,37 @@ export async function verifyApiKey(apiKey: string): Promise<{
   status: number;
   message: string;
 }> {
-  try {
-    const response = await fetch("https://api.elevenlabs.io/v1/user", {
-      method: "GET",
-      headers: { "xi-api-key": apiKey },
-    });
+  const result = await sendElevenLabsRequest({ path: "/v1/user", apiKey });
 
-    if (response.ok) {
-      return { ok: true, status: 200, message: "API key verified." };
-    }
+  if (result.ok) {
+    return { ok: true, status: 200, message: "API key verified." };
+  }
 
-    if (response.status === 401) {
+  switch (result.kind) {
+    case "unauthorized":
       return {
         ok: false,
         status: 401,
         message:
           "ElevenLabs rejected the key. Double-check it in your ElevenLabs dashboard under Profile → API Keys.",
       };
-    }
-
-    if (response.status === 429) {
+    case "rate_limited":
       return {
         ok: false,
         status: 429,
         message:
           "ElevenLabs rate-limited the verification request. Wait a moment and try again.",
       };
-    }
-
-    return {
-      ok: false,
-      status: response.status,
-      message: `ElevenLabs returned HTTP ${response.status} when verifying the key.`,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      message:
-        error instanceof Error
-          ? `Could not reach ElevenLabs: ${error.message}`
-          : "Could not reach ElevenLabs.",
-    };
+    // status 0 keeps the "could not reach upstream" convention handleSetApiKey maps to 502.
+    case "network":
+    case "timeout":
+      return { ok: false, status: 0, message: result.message };
+    default:
+      return {
+        ok: false,
+        status: result.status,
+        message: `ElevenLabs returned HTTP ${result.status} when verifying the key.`,
+      };
   }
 }
 

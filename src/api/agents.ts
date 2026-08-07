@@ -1,6 +1,7 @@
 import type { ConversationMode } from "../components/ModeSelector";
 import { AGENT_PROMPTS } from "./agentPrompts";
 import { getDocumentsContext } from "./knowledgebase";
+import { fetchElevenLabsJson, type ElevenLabsFailure } from "./elevenlabsClient";
 
 // Subject ID → display name mapping (must match SubjectSelector)
 const SUBJECT_NAMES: Record<string, string> = {
@@ -89,30 +90,42 @@ export async function getConversationToken(
     );
   }
 
-  const response = await fetch(
-    `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${agentId}`,
-    {
-      method: "GET",
-      headers: {
-        "xi-api-key": apiKey,
-      },
-    }
-  );
+  const result = await fetchElevenLabsJson<{ token: string }>({
+    path: CONVERSATION_TOKEN_PATH,
+    apiKey,
+    query: { agent_id: agentId },
+  });
 
-  if (response.status === 401) {
-    throw new ConfigError(
-      "invalid_api_key",
-      "ElevenLabs rejected the stored API key. Update it in Settings.",
-    );
+  if (!result.ok) throw conversationTokenError(result);
+
+  return result.data.token;
+}
+
+const CONVERSATION_TOKEN_PATH = "/v1/convai/conversation/token";
+
+/** Maps a transport-level failure onto the ConfigError codes src/index.ts knows how to render. */
+function conversationTokenError(failure: ElevenLabsFailure): ConfigError {
+  switch (failure.kind) {
+    case "unauthorized":
+      return new ConfigError(
+        "invalid_api_key",
+        "ElevenLabs rejected the stored API key. Update it in Settings.",
+      );
+    case "network":
+    case "timeout":
+      return new ConfigError(
+        "upstream_error",
+        `Could not reach ElevenLabs to request the conversation token. ${failure.message}`,
+      );
+    case "invalid_response":
+      return new ConfigError(
+        "upstream_error",
+        "ElevenLabs returned an unreadable response when requesting the conversation token.",
+      );
+    default:
+      return new ConfigError(
+        "upstream_error",
+        `ElevenLabs returned HTTP ${failure.status} when requesting the conversation token.`,
+      );
   }
-
-  if (!response.ok) {
-    throw new ConfigError(
-      "upstream_error",
-      `ElevenLabs returned HTTP ${response.status} when requesting the conversation token.`,
-    );
-  }
-
-  const data = (await response.json()) as { token: string };
-  return data.token;
 }

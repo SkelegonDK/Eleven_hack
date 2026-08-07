@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, mock, spyOn } from "bun:test";
+import { describe, it, expect, beforeEach, spyOn } from "bun:test";
 import {
+  ConfigError,
   getAgentForMode,
   getConversationToken,
   buildFullPrompt,
@@ -145,9 +146,25 @@ describe("getConversationToken", () => {
         headers: {
           "xi-api-key": "test_api_key",
         },
+        signal: expect.any(AbortSignal),
       }
     );
     expect(token).toBe("test_token_123");
+
+    mockFetch.mockRestore();
+  });
+
+  it("URL-encodes the agent ID", async () => {
+    const mockFetch = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ token: "t" }), { status: 200 })
+    );
+
+    await getConversationToken("agent 1&x=2", "test_api_key");
+
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).toBe(
+      "https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=agent+1%26x%3D2"
+    );
 
     mockFetch.mockRestore();
   });
@@ -178,6 +195,62 @@ describe("getConversationToken", () => {
     await expect(getConversationToken("agent_123", "good_key")).rejects.toThrow(
       "ElevenLabs returned HTTP 500"
     );
+
+    mockFetch.mockRestore();
+  });
+
+  it("wraps a network rejection as an upstream_error ConfigError", async () => {
+    const mockFetch = spyOn(globalThis, "fetch").mockRejectedValueOnce(
+      new TypeError("Unable to connect. Is the computer able to access the url?")
+    );
+
+    let thrown: unknown;
+    try {
+      await getConversationToken("agent_123", "good_key");
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ConfigError);
+    expect((thrown as ConfigError).code).toBe("upstream_error");
+    expect((thrown as ConfigError).message).toContain("Could not reach ElevenLabs");
+
+    mockFetch.mockRestore();
+  });
+
+  it("wraps a request timeout as an upstream_error ConfigError", async () => {
+    const timeoutError = new Error("The operation timed out.");
+    timeoutError.name = "TimeoutError";
+    const mockFetch = spyOn(globalThis, "fetch").mockRejectedValueOnce(timeoutError);
+
+    let thrown: unknown;
+    try {
+      await getConversationToken("agent_123", "good_key");
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ConfigError);
+    expect((thrown as ConfigError).code).toBe("upstream_error");
+    expect((thrown as ConfigError).message).toContain("timed out");
+
+    mockFetch.mockRestore();
+  });
+
+  it("wraps an unparseable success body as an upstream_error ConfigError", async () => {
+    const mockFetch = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("<html>not json</html>", { status: 200 })
+    );
+
+    let thrown: unknown;
+    try {
+      await getConversationToken("agent_123", "good_key");
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ConfigError);
+    expect((thrown as ConfigError).code).toBe("upstream_error");
 
     mockFetch.mockRestore();
   });

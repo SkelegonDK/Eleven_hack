@@ -1,6 +1,9 @@
 // Audit ElevenLabs agent configurations
 // Fetches each agent's config from the API and reports outdated models/settings
 
+import { fetchElevenLabsJson } from "./elevenlabsClient";
+import { resolveApiKey } from "../lib/session";
+
 export interface AgentAuditResult {
   agentId: string;
   mode: string;
@@ -29,19 +32,16 @@ const RECOMMENDED = {
 };
 
 async function fetchAgentConfig(agentId: string, apiKey: string): Promise<Record<string, unknown>> {
-  const response = await fetch(
-    `https://api.elevenlabs.io/v1/convai/agents/${agentId}`,
-    {
-      method: "GET",
-      headers: { "xi-api-key": apiKey },
-    }
-  );
+  const result = await fetchElevenLabsJson<Record<string, unknown>>({
+    path: `/v1/convai/agents/${encodeURIComponent(agentId)}`,
+    apiKey,
+  });
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch agent ${agentId}: ${response.status} ${response.statusText}`);
+  if (!result.ok) {
+    throw new Error(`Failed to fetch agent ${agentId}: ${result.message}`);
   }
 
-  return (await response.json()) as Record<string, unknown>;
+  return result.data;
 }
 
 function analyzeAgent(config: Record<string, unknown>, mode: string, agentId: string): AgentAuditResult {
@@ -95,8 +95,14 @@ function analyzeAgent(config: Record<string, unknown>, mode: string, agentId: st
   };
 }
 
-export async function auditAgents(): Promise<AuditReport> {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
+/**
+ * @param providedKey Optional explicit key. When omitted the key is resolved
+ * through the same precedence helper the server uses (session first, then
+ * `ELEVENLABS_API_KEY`); with no session, that is the env var — which is what
+ * the CLI entry point relies on.
+ */
+export async function auditAgents(providedKey?: string): Promise<AuditReport> {
+  const apiKey = providedKey ?? resolveApiKey({});
   if (!apiKey) {
     throw new Error("ELEVENLABS_API_KEY environment variable is not set");
   }

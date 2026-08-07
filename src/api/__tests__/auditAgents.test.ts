@@ -39,10 +39,16 @@ function makeMockAgentConfig(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// `typeof fetch` carries a `preconnect` property, so a bare arrow function is
+// not assignable to it. This wraps an implementation into a valid fetch stub.
+function fetchStub(impl: () => Promise<Response>): typeof fetch {
+  return Object.assign(impl, { preconnect: () => {} }) as unknown as typeof fetch;
+}
+
 // Helper: mock fetch to return a fresh Response each call
 function mockFetchWithConfig(config: Record<string, unknown>) {
   return spyOn(globalThis, "fetch").mockImplementation(
-    (() => Promise.resolve(new Response(JSON.stringify(config), { status: 200 }))) as typeof fetch
+    fetchStub(() => Promise.resolve(new Response(JSON.stringify(config), { status: 200 })))
   );
 }
 
@@ -100,7 +106,9 @@ describe("auditAgents", () => {
 
   it("handles API errors gracefully", async () => {
     const mockFetch = spyOn(globalThis, "fetch").mockImplementation(
-      (() => Promise.resolve(new Response("Unauthorized", { status: 401, statusText: "Unauthorized" }))) as typeof fetch
+      fetchStub(() =>
+        Promise.resolve(new Response("Unauthorized", { status: 401, statusText: "Unauthorized" }))
+      )
     );
 
     const report = await auditAgents();
@@ -110,6 +118,49 @@ describe("auditAgents", () => {
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]).toContain("401");
     }
+
+    mockFetch.mockRestore();
+  });
+
+  it("records a network rejection as an issue instead of throwing", async () => {
+    const mockFetch = spyOn(globalThis, "fetch").mockImplementation(
+      fetchStub(() => Promise.reject(new TypeError("Unable to connect")))
+    );
+
+    const report = await auditAgents();
+
+    expect(report.results).toHaveLength(3);
+    for (const result of report.results) {
+      expect(result.issues[0]).toContain("Could not reach ElevenLabs");
+    }
+
+    mockFetch.mockRestore();
+  });
+
+  it("sends encoded agent URLs with the xi-api-key header", async () => {
+    const mockFetch = mockFetchWithConfig(makeMockAgentConfig());
+
+    await auditAgents();
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.elevenlabs.io/v1/convai/agents/agent_fun_123",
+      {
+        method: "GET",
+        headers: { "xi-api-key": "test_api_key" },
+        signal: expect.any(AbortSignal),
+      }
+    );
+
+    mockFetch.mockRestore();
+  });
+
+  it("accepts an explicit API key overriding the environment", async () => {
+    const mockFetch = mockFetchWithConfig(makeMockAgentConfig());
+
+    await auditAgents("explicit_key");
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Record<string, string>)["xi-api-key"]).toBe("explicit_key");
 
     mockFetch.mockRestore();
   });
