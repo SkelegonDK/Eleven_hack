@@ -1,18 +1,21 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { SubjectSelector } from "./SubjectSelector";
-import { ModeSelector, type ConversationMode } from "./ModeSelector";
+import { ModeSelector } from "./ModeSelector";
 import { PlayButton } from "./PlayButton";
 import { ConversationView } from "./ConversationView";
 import { Button } from "./ui/button";
-import { AlertCircle, KeyRound, Settings2 } from "lucide-react";
+import { AlertCircle, KeyRound, Settings2, WifiOff } from "lucide-react";
 import LightRays from "./LightRays";
 import Aurora from './Aurora';
-import { ApiKeySettings, type ConfigStatus } from "./ApiKeySettings";
+import { ApiKeySettings } from "./ApiKeySettings";
+import type { ConfigStatus, ConversationMode } from "@/shared/config";
+import * as poduApi from "@/lib/poduApi";
+import { useRequest } from "@/lib/useRequest";
 import {
   describeException,
   failureCopy,
-  failureCopyFromResponse,
+  failureCopyFromApiError,
   requiresApiKeyAction,
   type FailureCopy,
 } from "@/lib/failureCopy";
@@ -111,13 +114,16 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
   // Holds mapped copy, never a raw string, so a rendered message can't be fed
   // back into a mapper.
   const [startFailure, setStartFailure] = useState<FailureCopy | null>(null);
-  const [showConversation, setShowConversation] = useState(false);
-  const [agentId, setAgentId] = useState<string | null>(null);
-  const [agentSystemPrompt, setAgentSystemPrompt] = useState<string | null>(null);
-  const [agentFirstMessage, setAgentFirstMessage] = useState<string | null>(null);
+  /**
+   * The agent to hand to <ConversationView>, or null while we're on the
+   * landing page. One nullable object rather than three parallel strings plus
+   * a boolean: there is no longer a combination of those four that means
+   * "showing the conversation with half an agent".
+   */
+  const [agent, setAgent] = useState<poduApi.AgentSession | null>(null);
 
-  const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
-  const [configLoading, setConfigLoading] = useState(true);
+  const config = useRequest<ConfigStatus>();
+  const runConfig = config.run;
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Runtime state for disabling heavy effects (can be toggled by user or set via prop)
@@ -129,31 +135,30 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
   // Combine all sources: prop, state, or user preference
   const shouldReduceMotion = prefersReducedMotion || disableHeavyEffectsProp || disableHeavyEffectsState;
 
-  const needsApiKey = !configLoading && !!configStatus && !configStatus.hasApiKey;
+  /**
+   * Last config the server answered with. Kept across a refresh so the banners
+   * below don't flicker while `handleStart` re-checks; `configUnreachable`
+   * says whether it's still trustworthy.
+   */
+  const configStatus = config.data;
+  /**
+   * The server didn't answer. Distinct from "answered, and you have no key":
+   * a dead server used to render as a fully-configured app with a Play button
+   * that did nothing, which is the one state this page must never fake.
+   */
+  const configUnreachable = config.status === "error";
+  const needsApiKey = !configUnreachable && !!configStatus && !configStatus.hasApiKey;
   const missingAgentForMode =
-    !configLoading && configStatus
-      ? !configStatus.agentIds[selectedMode]
-      : false;
+    !configUnreachable && configStatus ? !configStatus.agentIds[selectedMode] : false;
   const canStart =
-    selectedSubjects.length > 0 && !needsApiKey && !missingAgentForMode;
-
-  const refreshConfig = useCallback(async (): Promise<ConfigStatus | null> => {
-    try {
-      const res = await fetch("/api/config");
-      if (!res.ok) return null;
-      const data = (await res.json()) as ConfigStatus;
-      setConfigStatus(data);
-      return data;
-    } catch {
-      return null;
-    } finally {
-      setConfigLoading(false);
-    }
-  }, []);
+    selectedSubjects.length > 0 &&
+    !needsApiKey &&
+    !missingAgentForMode &&
+    !configUnreachable;
 
   useEffect(() => {
-    void refreshConfig();
-  }, [refreshConfig]);
+    void runConfig(poduApi.getConfig);
+  }, [runConfig]);
 
   // Compute Aurora colors based on selected subjects
   const auroraColors = useMemo(() => getAuroraColors(selectedSubjects), [selectedSubjects]);
@@ -167,38 +172,28 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
 
     try {
       // Pre-flight: refresh config so a stale "needs key" banner doesn't block a
-      // user who just saved their key in another tab.
-      const latest = await refreshConfig();
-      if (latest && !latest.hasApiKey) {
+      // user who just saved their key in another tab. If the refresh itself
+      // fails we fall through — /api/agents is about to fail the same way and
+      // will produce the more specific message.
+      const latest = await runConfig(poduApi.getConfig);
+      if (latest.ok && !latest.data.hasApiKey) {
         setStartFailure(failureCopy("missing_api_key", "landing"));
         setSettingsOpen(true);
         return;
       }
-      if (latest && !latest.agentIds[selectedMode]) {
+      if (latest.ok && !latest.data.agentIds[selectedMode]) {
         setStartFailure(failureCopy("missing_agent_id", "landing", { mode: selectedMode }));
         return;
       }
 
-      const response = await fetch("/api/agents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: selectedMode,
-          subjects: selectedSubjects,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as {
-          error?: string;
-          code?: string;
-        };
+      const result = await poduApi.getAgent(selectedMode, selectedSubjects);
+      if (!result.ok) {
         // Server codes are mapped here and nowhere else; the result is stored
         // as-is rather than thrown, so it never reaches describeException().
-        const failure = failureCopyFromResponse(errorData, response.status, "landing", {
+        const failure = failureCopyFromApiError(result.error, "landing", {
           mode: selectedMode,
         });
-        console.error("Failed to start conversation:", errorData);
+        console.error("Failed to start conversation:", result.error);
         setStartFailure(failure);
         if (requiresApiKeyAction(failure.code)) {
           setSettingsOpen(true);
@@ -206,12 +201,10 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
         return;
       }
 
-      const data = await response.json();
-      setAgentId(data.agentId);
-      setAgentSystemPrompt(data.systemPrompt);
-      setAgentFirstMessage(data.firstMessage);
-      setShowConversation(true);
+      setAgent(result.data);
     } catch (error) {
+      // poduApi resolves rather than throws, so this only catches a genuine
+      // bug. describeException is still the one mapper for thrown values.
       console.error("Failed to start conversation:", error);
       setStartFailure(describeException(error, "landing"));
     } finally {
@@ -219,22 +212,15 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
     }
   };
 
-  const handleCloseConversation = () => {
-    setShowConversation(false);
-    setAgentId(null);
-    setAgentSystemPrompt(null);
-    setAgentFirstMessage(null);
-  };
-
-  if (showConversation && agentId && agentSystemPrompt && agentFirstMessage) {
+  if (agent) {
     return (
       <ConversationView
         mode={selectedMode}
-        agentId={agentId}
-        systemPrompt={agentSystemPrompt}
-        firstMessage={agentFirstMessage}
+        agentId={agent.agentId}
+        systemPrompt={agent.systemPrompt}
+        firstMessage={agent.firstMessage}
         subjectCount={selectedSubjects.length}
-        onClose={handleCloseConversation}
+        onClose={() => setAgent(null)}
       />
     );
   }
@@ -359,7 +345,30 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
             {/* Validation / config messages */}
             {!startFailure && (
               <>
-                {needsApiKey ? (
+                {configUnreachable ? (
+                  /**
+                   * Never auto-opens Settings: the key isn't the problem, and
+                   * a modal demanding one would send the user off to fix
+                   * something that isn't broken.
+                   */
+                  <div className="flex flex-col items-center gap-2 w-full max-w-md">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
+                      <WifiOff className="w-4 h-4 flex-shrink-0" />
+                      <p className="font-mono text-xs">
+                        Can't reach the PODU server — is bun dev running?
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void runConfig(poduApi.getConfig)}
+                      disabled={config.status === "loading"}
+                      className="font-mono text-xs"
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : needsApiKey ? (
                   <button
                     type="button"
                     onClick={() => setSettingsOpen(true)}
@@ -428,13 +437,18 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
       </footer>
 
       <ApiKeySettings
-        open={settingsOpen || (!configLoading && needsApiKey)}
-        blocking={!configLoading && needsApiKey}
+        open={settingsOpen || needsApiKey}
+        blocking={needsApiKey}
         onOpenChange={setSettingsOpen}
         status={configStatus}
-        onSaved={(next) => {
-          setConfigStatus(next);
-          if (next.hasApiKey) {
+        /**
+         * The dialog no longer fetches config itself — it reports that
+         * something changed and this page, which owns the one config request,
+         * re-reads it.
+         */
+        onSaved={async () => {
+          const next = await runConfig(poduApi.getConfig);
+          if (next.ok && next.data.hasApiKey) {
             setSettingsOpen(false);
             if (requiresApiKeyAction(startFailure?.code)) {
               setStartFailure(null);

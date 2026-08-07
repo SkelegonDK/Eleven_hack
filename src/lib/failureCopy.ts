@@ -8,9 +8,9 @@
  *
  * A failure is mapped exactly once, at the boundary where it enters the client:
  *
- *   - a server response carrying `{ error, code }`
- *       -> `failureCopy(toFailureCode(code, status), surface, context)`
- *   - a thrown exception (getUserMedia, fetch, the ElevenLabs SDK's `onError`)
+ *   - an `ApiError` returned by a `poduApi` call (the only way a server
+ *     failure reaches the UI) -> `failureCopyFromApiError(error, surface, ctx)`
+ *   - a thrown exception (getUserMedia, the ElevenLabs SDK's `onError`)
  *       -> `describeException(error, surface)`
  *
  * Both produce a `FailureCopy` object. Components store and render that object;
@@ -19,6 +19,8 @@
  * `FailureCopy` it returns it unchanged — so translating an already-translated
  * message is impossible even by accident.
  */
+
+import type { ApiError } from "./poduApi";
 
 /** Everything that can go wrong, named once. */
 export type FailureCode =
@@ -266,17 +268,22 @@ export function describeException(
   return failureCopy("unknown", surface);
 }
 
-/** Copy for a failure returned by an API route as `{ error, code }`. */
-export function failureCopyFromResponse(
-  body: { error?: string; code?: string },
-  status: number,
+/**
+ * Copy for a failure a `poduApi` call returned.
+ *
+ * This is the server-side half of the boundary: `poduApi` decides *what* went
+ * wrong, this decides what the user reads about it. The `ApiError` is a value,
+ * never a thrown one, so nothing produced here can reach `describeException`
+ * and be translated a second time.
+ */
+export function failureCopyFromApiError(
+  error: ApiError,
   surface: FailureSurface,
   context: FailureContext = {},
 ): FailureCopy {
-  const code = toFailureCode(body.code, status);
-  return failureCopy(code, surface, {
+  return failureCopy(toFailureCode(error.code, error.status), surface, {
     ...context,
-    status,
-    serverMessage: body.error,
+    status: error.status,
+    serverMessage: error.message,
   });
 }

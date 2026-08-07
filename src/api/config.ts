@@ -1,4 +1,4 @@
-import type { ConversationMode } from "../components/ModeSelector";
+import type { ConfigStatus, ConversationMode } from "../shared/config";
 import { readSession, writeSessionCookie, clearSessionCookie, resolveApiKey } from "../lib/session";
 import { sendElevenLabsRequest } from "./elevenlabsClient";
 
@@ -8,13 +8,8 @@ const AGENT_ID_ENV_VARS: Record<ConversationMode, string> = {
   deep: "ELEVENLABS_AGENT_ID_DEEP",
 };
 
-export interface ConfigStatus {
-  hasApiKey: boolean;
-  apiKeySource: "session" | "env" | "none";
-  apiKeyPreview: string | null;
-  agentIds: Record<ConversationMode, boolean>;
-  missingAgentModes: ConversationMode[];
-}
+/** The shape this module answers `GET /api/config` with; see ../shared/config. */
+export type { ConfigStatus };
 
 function mask(key: string): string {
   if (key.length <= 8) return "•".repeat(key.length);

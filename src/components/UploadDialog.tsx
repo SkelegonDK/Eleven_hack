@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
+import * as poduApi from "@/lib/poduApi";
 
 interface UploadedDocument {
   id: string;
@@ -17,20 +18,11 @@ interface UploadedDocument {
   status: "uploading" | "success" | "error";
   /**
    * The server's explanation for this specific file, when it sent one (e.g.
-   * "notes.pdf: only .txt and .md files are supported."). Undefined for
-   * failures with nothing useful to say, which fall back to generic copy.
+   * "notes.pdf: only .txt and .md files are supported.", or why a delete was
+   * rolled back). Undefined for failures with nothing useful to say, which
+   * fall back to generic copy.
    */
   errorMessage?: string;
-}
-
-/** Carries the server's per-file explanation from the fetch to the catch. */
-class UploadError extends Error {
-  readonly serverMessage: string | undefined;
-  constructor(serverMessage?: string) {
-    super(serverMessage ?? "Upload failed");
-    this.name = "UploadError";
-    this.serverMessage = serverMessage;
-  }
 }
 
 interface UploadDialogProps {
@@ -80,42 +72,16 @@ export function UploadDialog({
 
       if (!file || !doc) continue;
 
-      try {
-        const formData = new FormData();
-        formData.append("file", file);
+      const result = await poduApi.uploadDocument(file);
 
-        const response = await fetch("/api/documents", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          // A rejection the server can explain (unsupported type, empty file)
-          // carries a `code` alongside a sentence written for this file. Show
-          // that sentence; anything else gets the generic fallback.
-          const body = await response.json().catch(() => null);
-          throw new UploadError(
-            typeof body?.code === "string" && typeof body?.error === "string"
-              ? body.error
-              : undefined,
-          );
-        }
-
-        const result = await response.json();
-
-        setDocuments((prev) => {
-          const updated = prev.map((d) =>
-            d.id === doc.id
-              ? { ...d, id: result.id, status: "success" as const }
-              : d
-          );
-          onDocumentsChange?.(updated);
-          return updated;
-        });
-      } catch (error) {
-        console.error("Error uploading file:", error);
-        const serverMessage =
-          error instanceof UploadError ? error.serverMessage : undefined;
+      if (!result.ok) {
+        console.error("Error uploading file:", result.error);
+        // A rejection the server named (unsupported type, empty file) carries
+        // a sentence written for this file. Show that sentence; an anonymous
+        // failure has nothing better than the generic fallback.
+        const serverMessage = poduApi.isServerNamedError(result.error)
+          ? result.error.message
+          : undefined;
         setDocuments((prev) => {
           const updated = prev.map((d) =>
             d.id === doc.id
@@ -125,26 +91,56 @@ export function UploadDialog({
           onDocumentsChange?.(updated);
           return updated;
         });
+        continue;
       }
+
+      setDocuments((prev) => {
+        const updated = prev.map((d) =>
+          d.id === doc.id
+            ? { ...d, id: result.data.id, status: "success" as const }
+            : d
+        );
+        onDocumentsChange?.(updated);
+        return updated;
+      });
     }
   };
 
   const removeDocument = async (id: string) => {
-    // Remove from UI immediately
+    const index = documents.findIndex((d) => d.id === id);
+    const doc = documents[index];
+    if (!doc) return;
+
+    // Optimistic: the row disappears on click.
     setDocuments((prev) => {
       const updated = prev.filter((d) => d.id !== id);
       onDocumentsChange?.(updated);
       return updated;
     });
 
-    // Delete from server
-    try {
-      await fetch(`/api/documents/${id}`, {
-        method: "DELETE",
+    // Only a successful upload has a server-side id worth deleting. A row
+    // still uploading, or one whose upload failed, exists on this client only.
+    if (doc.status !== "success") return;
+
+    const result = await poduApi.deleteDocument(id);
+    // 404 means the row is already gone server-side, so the optimistic removal
+    // was right after all — deletion is idempotent.
+    if (result.ok || result.error.status === 404) return;
+
+    // Roll back: the document is still on the server, so a list that no longer
+    // shows it is a lie — and the prompt would still include it.
+    console.error("Error deleting document:", result.error);
+    setDocuments((prev) => {
+      if (prev.some((d) => d.id === doc.id)) return prev;
+      const restored = [...prev];
+      restored.splice(Math.min(index, restored.length), 0, {
+        ...doc,
+        status: "error",
+        errorMessage: `Couldn't remove this file — ${result.error.message}`,
       });
-    } catch (error) {
-      console.error("Error deleting document:", error);
-    }
+      onDocumentsChange?.(restored);
+      return restored;
+    });
   };
 
   const handleDragOver = (e: React.DragEvent) => {

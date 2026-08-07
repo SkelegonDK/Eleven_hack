@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,20 +13,20 @@ import { Button } from "./ui/button";
 import { AlertCircle, CheckCircle2, KeyRound, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { failureCopy } from "@/lib/failureCopy";
-
-export interface ConfigStatus {
-  hasApiKey: boolean;
-  apiKeySource: "session" | "env" | "none";
-  apiKeyPreview: string | null;
-  agentIds: { fun: boolean; edu: boolean; deep: boolean };
-  missingAgentModes: ("fun" | "edu" | "deep")[];
-}
+import type { ConfigStatus } from "@/shared/config";
+import * as poduApi from "@/lib/poduApi";
 
 interface ApiKeySettingsProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Current config, owned and refreshed by the parent. */
   status: ConfigStatus | null;
-  onSaved: (status: ConfigStatus) => void;
+  /**
+   * The stored key changed. The parent re-reads config and decides what to do
+   * with the result — this dialog deliberately has no config request of its
+   * own, so there is one reader of /api/config in the app.
+   */
+  onSaved: () => void;
   /** When true, the dialog cannot be dismissed (first-run / blocker mode). */
   blocking?: boolean;
 }
@@ -52,16 +52,6 @@ export function ApiKeySettings({
     }
   }, [open]);
 
-  const refreshStatus = useCallback(async (): Promise<ConfigStatus | null> => {
-    try {
-      const res = await fetch("/api/config");
-      if (!res.ok) return null;
-      return (await res.json()) as ConfigStatus;
-    } catch {
-      return null;
-    }
-  }, []);
-
   const handleSave = async () => {
     setError(null);
     setSuccess(null);
@@ -73,42 +63,33 @@ export function ApiKeySettings({
 
     setSaving(true);
     try {
-      const res = await fetch("/api/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: trimmed }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data.error || `Request failed with status ${res.status}`);
+      const result = await poduApi.setApiKey(trimmed);
+      if (!result.ok) {
+        setError(result.error.message);
         return;
       }
       setSuccess("API key verified and saved.");
       setApiKey("");
-      const next = await refreshStatus();
-      if (next) onSaved(next);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save key.");
+      onSaved();
     } finally {
       setSaving(false);
     }
   };
 
+  // Same error path as save: a failed DELETE used to be reported as a bare
+  // status code while POST showed the server's sentence.
   const handleClear = async () => {
     setError(null);
     setSuccess(null);
     setClearing(true);
     try {
-      const res = await fetch("/api/config", { method: "DELETE" });
-      if (!res.ok) {
-        setError(`Failed to clear key (HTTP ${res.status})`);
+      const result = await poduApi.clearApiKey();
+      if (!result.ok) {
+        setError(result.error.message);
         return;
       }
-      const next = await refreshStatus();
-      if (next) onSaved(next);
       setSuccess("API key removed from this session.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to clear key.");
+      onSaved();
     } finally {
       setClearing(false);
     }

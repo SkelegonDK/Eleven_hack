@@ -1,7 +1,12 @@
 import { cn } from "@/lib/utils";
 import { Sparkles, GraduationCap, Waves } from "lucide-react";
+import type { ConversationMode } from "@/shared/config";
 
-export type ConversationMode = "fun" | "edu" | "deep";
+/**
+ * Re-exported for back-compat: the type is declared in @/shared/config so the
+ * server can use it without importing a React component.
+ */
+export type { ConversationMode };
 
 interface ModeSelectorProps {
   selected: ConversationMode;

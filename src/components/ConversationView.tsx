@@ -3,9 +3,10 @@ import { useConversation } from "@elevenlabs/react";
 import { cn } from "@/lib/utils";
 import {
   describeException,
-  failureCopyFromResponse,
+  failureCopyFromApiError,
   type FailureCopy,
 } from "@/lib/failureCopy";
+import * as poduApi from "@/lib/poduApi";
 import { PlayButton } from "./PlayButton";
 import type { ConversationMode } from "./ModeSelector";
 import { X, Volume2, VolumeX, Mic, AlertCircle } from "lucide-react";
@@ -89,27 +90,16 @@ export function ConversationView({
       return;
     }
 
-    // Fetch conversation token for WebRTC
-    let token: string;
-    try {
-      const tokenRes = await fetch(`/api/agents/${agentId}/conversation-token`);
-      if (!tokenRes.ok) {
-        const errorData = (await tokenRes.json().catch(() => ({}))) as {
-          error?: string;
-          code?: string;
-        };
-        // Server codes are mapped here and nowhere else; the result is stored
-        // as-is rather than thrown, so it never reaches describeException().
-        setStartFailure(
-          failureCopyFromResponse(errorData, tokenRes.status, "conversation", { mode }),
-        );
-        return;
-      }
-      ({ token } = (await tokenRes.json()) as { token: string });
-    } catch (error) {
-      setStartFailure(describeException(error, "conversation"));
+    // Fetch conversation token for WebRTC. poduApi resolves with an ApiError
+    // instead of throwing, so the server's failure is mapped here and nowhere
+    // else, and the resulting copy is stored as-is — it never reaches
+    // describeException(), which stays reserved for thrown values.
+    const tokenResult = await poduApi.getConversationToken(agentId);
+    if (!tokenResult.ok) {
+      setStartFailure(failureCopyFromApiError(tokenResult.error, "conversation", { mode }));
       return;
     }
+    const { token } = tokenResult.data;
 
     // Start the conversation with server-built prompt
     try {
