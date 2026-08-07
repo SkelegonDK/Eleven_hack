@@ -1,17 +1,22 @@
 import { test, expect } from "@playwright/test";
-import { mockAgentsApi } from "./helpers/api-mocks";
+import { mockAgentsApi, mockAgentsApiError, mockConfigApi } from "./helpers/api-mocks";
 
 test.describe("Start Conversation Error Handling", () => {
   test.beforeEach(async ({ page }) => {
+    // /api/config gates the whole app (LandingPage pre-flights it in
+    // handleStart and canStart disables the play button without it), so it
+    // must be mocked before the initial navigation, not inside the test body.
+    await mockConfigApi(page);
     await page.goto("/");
   });
 
   test("should show error message when API call fails", async ({ page }) => {
     // Mock API to return error
-    await mockAgentsApi(page, {
+    await mockAgentsApiError(page, {
       delay: 500,
       status: 500,
-      body: { error: "Failed to get agent" },
+      error: "Failed to get agent",
+      code: "upstream_error",
     });
 
     // Select a subject
@@ -30,10 +35,11 @@ test.describe("Start Conversation Error Handling", () => {
 
   test("should show retry button when error occurs", async ({ page }) => {
     // Mock API to return error
-    await mockAgentsApi(page, {
+    await mockAgentsApiError(page, {
       delay: 500,
       status: 500,
-      body: { error: "Failed to get agent" },
+      error: "Failed to get agent",
+      code: "upstream_error",
     });
 
     // Select a subject and trigger error
@@ -51,10 +57,11 @@ test.describe("Start Conversation Error Handling", () => {
 
   test("should retry successfully after error", async ({ page }) => {
     // First attempt: mock error
-    await mockAgentsApi(page, {
+    await mockAgentsApiError(page, {
       delay: 300,
       status: 500,
-      body: { error: "Failed to get agent" },
+      error: "Failed to get agent",
+      code: "upstream_error",
     });
 
     // Select subject and trigger error
@@ -64,11 +71,17 @@ test.describe("Start Conversation Error Handling", () => {
     // Wait for error
     await expect(page.getByText(/failed/i)).toBeVisible({ timeout: 2000 });
 
-    // Mock successful response for retry
+    // Mock successful response for retry - real route always returns
+    // { agentId, systemPrompt, firstMessage } (see src/api/agents.ts
+    // getAgentForMode), so the mock must match that full shape.
     await mockAgentsApi(page, {
       delay: 800,
       status: 200,
-      body: { agentId: "test-agent-retry" },
+      body: {
+        agentId: "test-agent-retry",
+        systemPrompt: "You are the host of PODU, an interactive podcast.",
+        firstMessage: "Welcome to PODU! What would you like to talk about?",
+      },
     });
 
     // Click retry
@@ -83,10 +96,11 @@ test.describe("Start Conversation Error Handling", () => {
 
   test("should clear error when retrying", async ({ page }) => {
     // Mock error
-    await mockAgentsApi(page, {
+    await mockAgentsApiError(page, {
       delay: 300,
       status: 500,
-      body: { error: "Failed to get agent" },
+      error: "Failed to get agent",
+      code: "upstream_error",
     });
 
     await page.getByRole("button", { name: /technology/i }).click();
@@ -95,11 +109,15 @@ test.describe("Start Conversation Error Handling", () => {
     // Wait for error
     await expect(page.getByText(/failed/i)).toBeVisible({ timeout: 2000 });
 
-    // Mock success for retry
+    // Mock success for retry - complete payload (see comment above).
     await mockAgentsApi(page, {
       delay: 800,
       status: 200,
-      body: { agentId: "test-agent-success" },
+      body: {
+        agentId: "test-agent-success",
+        systemPrompt: "You are the host of PODU, an interactive podcast.",
+        firstMessage: "Welcome to PODU! What would you like to talk about?",
+      },
     });
 
     // Retry
@@ -109,4 +127,3 @@ test.describe("Start Conversation Error Handling", () => {
     await expect(page.getByText(/failed/i)).not.toBeVisible({ timeout: 500 });
   });
 });
-

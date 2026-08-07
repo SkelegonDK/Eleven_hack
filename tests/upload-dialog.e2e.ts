@@ -1,10 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { setupApiMocks, mockDocumentsDeleteApi } from "./helpers/api-mocks";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { setupApiMocks } from "./helpers/api-mocks";
 
 test.describe("Upload Dialog Flow", () => {
   test.beforeEach(async ({ page }) => {

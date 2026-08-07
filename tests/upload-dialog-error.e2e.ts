@@ -1,9 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { mockDocumentsUploadApi } from "./helpers/api-mocks";
-import path from "path";
+import { mockDocumentsUploadApi, mockConfigApi } from "./helpers/api-mocks";
 
 test.describe("Upload Dialog Error Handling", () => {
   test.beforeEach(async ({ page }) => {
+    // /api/config gates the whole app on mount; mock it before navigation so
+    // these tests don't depend on the developer's real .env.
+    await mockConfigApi(page);
     await page.goto("/");
   });
 

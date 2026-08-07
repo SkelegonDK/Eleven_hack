@@ -44,7 +44,7 @@ test.describe("Mode Selection", () => {
   });
 
   test("should show EDU badge when EDU mode is selected", async ({ page }) => {
-    // EDU is default, just select a subject and start
+    await page.getByRole("button", { name: /edu/i }).click();
     await page.getByRole("button", { name: /science/i }).click();
     await page.getByTestId("play-button").click();
 
