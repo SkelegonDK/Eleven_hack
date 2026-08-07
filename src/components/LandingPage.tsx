@@ -9,6 +9,13 @@ import { AlertCircle, KeyRound, Settings2 } from "lucide-react";
 import LightRays from "./LightRays";
 import Aurora from './Aurora';
 import { ApiKeySettings, type ConfigStatus } from "./ApiKeySettings";
+import {
+  describeException,
+  failureCopy,
+  failureCopyFromResponse,
+  requiresApiKeyAction,
+  type FailureCopy,
+} from "@/lib/failureCopy";
 
 /**
  * SSR-safe hook to detect prefers-reduced-motion media query.
@@ -101,8 +108,9 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [selectedMode, setSelectedMode] = useState<ConversationMode>("fun");
   const [isLoading, setIsLoading] = useState(false);
-  const [startError, setStartError] = useState<string | null>(null);
-  const [startErrorCode, setStartErrorCode] = useState<string | null>(null);
+  // Holds mapped copy, never a raw string, so a rendered message can't be fed
+  // back into a mapper.
+  const [startFailure, setStartFailure] = useState<FailureCopy | null>(null);
   const [showConversation, setShowConversation] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [agentSystemPrompt, setAgentSystemPrompt] = useState<string | null>(null);
@@ -153,28 +161,24 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
   const handleStart = async () => {
     if (selectedSubjects.length === 0) return;
 
-    // Pre-flight: refresh config so a stale "needs key" banner doesn't block a
-    // user who just saved their key in another tab.
-    const latest = await refreshConfig();
-    if (latest && !latest.hasApiKey) {
-      setStartError("Add your ElevenLabs API key in Settings to start a conversation.");
-      setStartErrorCode("missing_api_key");
-      setSettingsOpen(true);
-      return;
-    }
-    if (latest && !latest.agentIds[selectedMode]) {
-      setStartError(
-        `No agent ID configured for ${selectedMode.toUpperCase()} mode. Set ELEVENLABS_AGENT_ID_${selectedMode.toUpperCase()} in .env and restart the server.`,
-      );
-      setStartErrorCode("missing_agent_id");
-      return;
-    }
-
-    setStartError(null);
-    setStartErrorCode(null);
+    // Loading state must appear immediately on click, before any network wait.
+    setStartFailure(null);
     setIsLoading(true);
 
     try {
+      // Pre-flight: refresh config so a stale "needs key" banner doesn't block a
+      // user who just saved their key in another tab.
+      const latest = await refreshConfig();
+      if (latest && !latest.hasApiKey) {
+        setStartFailure(failureCopy("missing_api_key", "landing"));
+        setSettingsOpen(true);
+        return;
+      }
+      if (latest && !latest.agentIds[selectedMode]) {
+        setStartFailure(failureCopy("missing_agent_id", "landing", { mode: selectedMode }));
+        return;
+      }
+
       const response = await fetch("/api/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -189,11 +193,17 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
           error?: string;
           code?: string;
         };
-        setStartErrorCode(errorData.code ?? null);
-        if (errorData.code === "missing_api_key" || errorData.code === "invalid_api_key") {
+        // Server codes are mapped here and nowhere else; the result is stored
+        // as-is rather than thrown, so it never reaches describeException().
+        const failure = failureCopyFromResponse(errorData, response.status, "landing", {
+          mode: selectedMode,
+        });
+        console.error("Failed to start conversation:", errorData);
+        setStartFailure(failure);
+        if (requiresApiKeyAction(failure.code)) {
           setSettingsOpen(true);
         }
-        throw new Error(errorData.error || "Failed to start conversation");
+        return;
       }
 
       const data = await response.json();
@@ -203,7 +213,7 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
       setShowConversation(true);
     } catch (error) {
       console.error("Failed to start conversation:", error);
-      setStartError(error instanceof Error ? error.message : "Failed to start conversation");
+      setStartFailure(describeException(error, "landing"));
     } finally {
       setIsLoading(false);
     }
@@ -347,7 +357,7 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
         <div className="relative px-6 py-8 pb-10">
           <div className="flex flex-col items-center gap-4">
             {/* Validation / config messages */}
-            {!startError && (
+            {!startFailure && (
               <>
                 {needsApiKey ? (
                   <button
@@ -357,16 +367,14 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
                   >
                     <KeyRound className="w-4 h-4" />
                     <span className="font-mono text-xs">
-                      Add your ElevenLabs API key to begin
+                      {failureCopy("missing_api_key", "setup").message}
                     </span>
                   </button>
                 ) : missingAgentForMode ? (
                   <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-400 max-w-md">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     <p className="font-mono text-xs">
-                      No agent configured for {selectedMode.toUpperCase()} mode. Set{" "}
-                      <code>ELEVENLABS_AGENT_ID_{selectedMode.toUpperCase()}</code> in
-                      <code> .env</code>.
+                      {failureCopy("missing_agent_id", "setup", { mode: selectedMode }).message}
                     </p>
                   </div>
                 ) : selectedSubjects.length === 0 ? (
@@ -378,15 +386,14 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
             )}
 
             {/* Error message */}
-            {startError && (
+            {startFailure && (
               <div className="flex flex-col items-center gap-2 w-full max-w-md">
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <p className="font-mono text-xs">{startError}</p>
+                  <p className="font-mono text-xs">{startFailure.message}</p>
                 </div>
                 <div className="flex gap-2">
-                  {(startErrorCode === "missing_api_key" ||
-                    startErrorCode === "invalid_api_key") && (
+                  {requiresApiKeyAction(startFailure.code) && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -429,12 +436,8 @@ export function LandingPage({ disableHeavyEffects: disableHeavyEffectsProp }: La
           setConfigStatus(next);
           if (next.hasApiKey) {
             setSettingsOpen(false);
-            if (
-              startErrorCode === "missing_api_key" ||
-              startErrorCode === "invalid_api_key"
-            ) {
-              setStartError(null);
-              setStartErrorCode(null);
+            if (requiresApiKeyAction(startFailure?.code)) {
+              setStartFailure(null);
             }
           }
         }}

@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useConversation } from "@elevenlabs/react";
 import { cn } from "@/lib/utils";
+import {
+  describeException,
+  failureCopyFromResponse,
+  type FailureCopy,
+} from "@/lib/failureCopy";
 import { PlayButton } from "./PlayButton";
 import type { ConversationMode } from "./ModeSelector";
 import { X, Volume2, VolumeX, Mic, AlertCircle } from "lucide-react";
@@ -51,44 +56,20 @@ export function ConversationView({
 }: ConversationViewProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
-  const [startError, setStartError] = useState<string | null>(null);
+  // Holds mapped copy, never a raw string, so a rendered message can't be fed
+  // back into a mapper.
+  const [startFailure, setStartFailure] = useState<FailureCopy | null>(null);
   const styles = modeStyles[mode];
   const conversationRef = useRef<ReturnType<typeof useConversation> | null>(null);
 
-  const humanizeError = useCallback((error: unknown): string => {
-    if (error instanceof Error) {
-      const name = error.name;
-      const msg = error.message || "";
-
-      // getUserMedia specifics
-      if (name === "NotAllowedError" || /permission denied/i.test(msg)) {
-        return "Microphone access is blocked. Enable microphone permission for this site in your browser settings and try again.";
-      }
-      if (name === "NotFoundError") {
-        return "No microphone detected. Connect a microphone and try again.";
-      }
-      if (name === "NotReadableError") {
-        return "Your microphone is in use by another app. Close it and try again.";
-      }
-
-      // ElevenLabs WebRTC auth-ish errors
-      if (/unauthor/i.test(msg) || /401/.test(msg) || /forbidden/i.test(msg) || /403/.test(msg)) {
-        return "ElevenLabs rejected the connection. Close this screen and update your API key in Settings.";
-      }
-
-      if (msg) return msg;
-    }
-    return "Couldn't start the conversation. Try again, or check your API key in Settings.";
-  }, []);
-
   const conversation = useConversation({
     onConnect: () => {
-      setStartError(null);
+      setStartFailure(null);
     },
     onDisconnect: () => {},
     onMessage: () => {},
     onError: (error: unknown) => {
-      setStartError(humanizeError(error));
+      setStartFailure(describeException(error, "conversation"));
     },
   });
 
@@ -98,50 +79,40 @@ export function ConversationView({
   const { status, isSpeaking } = conversation;
 
   const startConversation = useCallback(async () => {
-    setStartError(null);
-    try {
-      // Request microphone permission
-      try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (micError) {
-        throw micError instanceof Error ? micError : new Error("Microphone request failed.");
-      }
+    setStartFailure(null);
 
-      // Fetch conversation token for WebRTC
+    // Request microphone permission
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (micError) {
+      setStartFailure(describeException(micError, "conversation"));
+      return;
+    }
+
+    // Fetch conversation token for WebRTC
+    let token: string;
+    try {
       const tokenRes = await fetch(`/api/agents/${agentId}/conversation-token`);
       if (!tokenRes.ok) {
         const errorData = (await tokenRes.json().catch(() => ({}))) as {
           error?: string;
           code?: string;
         };
-        const code = errorData.code;
-        const serverMsg = errorData.error;
-        let friendly: string;
-        if (code === "missing_api_key") {
-          friendly =
-            "No ElevenLabs API key is configured. Close this screen and add your key in Settings.";
-        } else if (code === "invalid_api_key") {
-          friendly =
-            "ElevenLabs rejected the stored API key. Close this screen and update it in Settings.";
-        } else if (code === "missing_agent_id") {
-          friendly =
-            serverMsg ??
-            `No ElevenLabs agent is configured for ${mode.toUpperCase()} mode.`;
-        } else if (code === "upstream_error") {
-          friendly =
-            serverMsg ??
-            "ElevenLabs is returning an error right now. Try again in a moment.";
-        } else if (tokenRes.status >= 500) {
-          friendly =
-            "The server hit an error while requesting the ElevenLabs token. Check the server logs.";
-        } else {
-          friendly = serverMsg ?? `Couldn't get a conversation token (HTTP ${tokenRes.status}).`;
-        }
-        throw new Error(friendly);
+        // Server codes are mapped here and nowhere else; the result is stored
+        // as-is rather than thrown, so it never reaches describeException().
+        setStartFailure(
+          failureCopyFromResponse(errorData, tokenRes.status, "conversation", { mode }),
+        );
+        return;
       }
-      const { token } = (await tokenRes.json()) as { token: string };
+      ({ token } = (await tokenRes.json()) as { token: string });
+    } catch (error) {
+      setStartFailure(describeException(error, "conversation"));
+      return;
+    }
 
-      // Start the conversation with server-built prompt
+    // Start the conversation with server-built prompt
+    try {
       await conversation.startSession({
         conversationToken: token,
         connectionType: "webrtc",
@@ -155,9 +126,9 @@ export function ConversationView({
         },
       });
     } catch (error) {
-      setStartError(humanizeError(error));
+      setStartFailure(describeException(error, "conversation"));
     }
-  }, [conversation, agentId, mode, systemPrompt, firstMessage, humanizeError]);
+  }, [conversation, agentId, mode, systemPrompt, firstMessage]);
 
   const stopConversation = useCallback(async () => {
     await conversation.endSession();
@@ -247,7 +218,7 @@ export function ConversationView({
       {/* Main content */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
         {/* Error banner */}
-        {startError && (
+        {startFailure && (
           <div
             role="alert"
             className={cn(
@@ -256,9 +227,9 @@ export function ConversationView({
             )}
           >
             <AlertCircle className="w-5 h-5 shrink-0" />
-            <p className="font-mono text-sm">{startError}</p>
+            <p className="font-mono text-sm">{startFailure.message}</p>
             <button
-              onClick={() => setStartError(null)}
+              onClick={() => setStartFailure(null)}
               className="ml-auto p-1 rounded hover:bg-destructive/20 transition-colors"
               aria-label="Dismiss error"
             >

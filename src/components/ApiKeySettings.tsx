@@ -12,6 +12,7 @@ import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { AlertCircle, CheckCircle2, KeyRound, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { failureCopy } from "@/lib/failureCopy";
 
 export interface ConfigStatus {
   hasApiKey: boolean;
@@ -189,11 +190,7 @@ export function ApiKeySettings({
             >
               <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
               <div className="text-[11px] font-mono leading-relaxed">
-                Missing agent IDs for: {missingAgents.join(", ")}. Set{" "}
-                {missingAgents
-                  .map((m) => `ELEVENLABS_AGENT_ID_${m.toUpperCase()}`)
-                  .join(", ")}{" "}
-                in <code>.env</code> so each mode can reach its agent.
+                {failureCopy("missing_agent_id", "setup", { modes: missingAgents }).message}
               </div>
             </div>
           )}
