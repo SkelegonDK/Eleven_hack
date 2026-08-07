@@ -55,6 +55,32 @@ export function ConversationView({
   const styles = modeStyles[mode];
   const conversationRef = useRef<ReturnType<typeof useConversation> | null>(null);
 
+  const humanizeError = useCallback((error: unknown): string => {
+    if (error instanceof Error) {
+      const name = error.name;
+      const msg = error.message || "";
+
+      // getUserMedia specifics
+      if (name === "NotAllowedError" || /permission denied/i.test(msg)) {
+        return "Microphone access is blocked. Enable microphone permission for this site in your browser settings and try again.";
+      }
+      if (name === "NotFoundError") {
+        return "No microphone detected. Connect a microphone and try again.";
+      }
+      if (name === "NotReadableError") {
+        return "Your microphone is in use by another app. Close it and try again.";
+      }
+
+      // ElevenLabs WebRTC auth-ish errors
+      if (/unauthor/i.test(msg) || /401/.test(msg) || /forbidden/i.test(msg) || /403/.test(msg)) {
+        return "ElevenLabs rejected the connection. Close this screen and update your API key in Settings.";
+      }
+
+      if (msg) return msg;
+    }
+    return "Couldn't start the conversation. Try again, or check your API key in Settings.";
+  }, []);
+
   const conversation = useConversation({
     onConnect: () => {
       setStartError(null);
@@ -62,10 +88,7 @@ export function ConversationView({
     onDisconnect: () => {},
     onMessage: () => {},
     onError: (error: unknown) => {
-      const message = typeof error === "object" && error !== null && "message" in error && typeof (error as Error).message === "string"
-        ? (error as Error).message
-        : "Connection error. Please try again.";
-      setStartError(message);
+      setStartError(humanizeError(error));
     },
   });
 
@@ -78,13 +101,43 @@ export function ConversationView({
     setStartError(null);
     try {
       // Request microphone permission
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (micError) {
+        throw micError instanceof Error ? micError : new Error("Microphone request failed.");
+      }
 
       // Fetch conversation token for WebRTC
       const tokenRes = await fetch(`/api/agents/${agentId}/conversation-token`);
       if (!tokenRes.ok) {
-        const errorData = await tokenRes.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to get conversation token");
+        const errorData = (await tokenRes.json().catch(() => ({}))) as {
+          error?: string;
+          code?: string;
+        };
+        const code = errorData.code;
+        const serverMsg = errorData.error;
+        let friendly: string;
+        if (code === "missing_api_key") {
+          friendly =
+            "No ElevenLabs API key is configured. Close this screen and add your key in Settings.";
+        } else if (code === "invalid_api_key") {
+          friendly =
+            "ElevenLabs rejected the stored API key. Close this screen and update it in Settings.";
+        } else if (code === "missing_agent_id") {
+          friendly =
+            serverMsg ??
+            `No ElevenLabs agent is configured for ${mode.toUpperCase()} mode.`;
+        } else if (code === "upstream_error") {
+          friendly =
+            serverMsg ??
+            "ElevenLabs is returning an error right now. Try again in a moment.";
+        } else if (tokenRes.status >= 500) {
+          friendly =
+            "The server hit an error while requesting the ElevenLabs token. Check the server logs.";
+        } else {
+          friendly = serverMsg ?? `Couldn't get a conversation token (HTTP ${tokenRes.status}).`;
+        }
+        throw new Error(friendly);
       }
       const { token } = (await tokenRes.json()) as { token: string };
 
@@ -102,10 +155,9 @@ export function ConversationView({
         },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to start conversation";
-      setStartError(message);
+      setStartError(humanizeError(error));
     }
-  }, [conversation, agentId, systemPrompt, firstMessage]);
+  }, [conversation, agentId, mode, systemPrompt, firstMessage, humanizeError]);
 
   const stopConversation = useCallback(async () => {
     await conversation.endSession();
