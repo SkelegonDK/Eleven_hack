@@ -1,6 +1,6 @@
 import { serve } from "bun";
 import plugin from "bun-plugin-tailwind";
-import { ConfigError, getAgentForMode, getConversationToken } from "./api/agents";
+import { getAgentForMode, getConversationToken } from "./api/agents";
 import {
   uploadDocument,
   getDocument,
@@ -15,6 +15,7 @@ import {
   resolveApiKey,
 } from "./api/config";
 import { readSession } from "./lib/session";
+import { route } from "./lib/httpRoute";
 
 const port = Number(process.env.PORT ?? 3000);
 const hostname = process.env.HOST ?? "127.0.0.1";
@@ -22,19 +23,6 @@ const hostname = process.env.HOST ?? "127.0.0.1";
 if (!process.env.ELEVENLABS_API_KEY) {
   console.warn(
     "Note: ELEVENLABS_API_KEY not set in env. Users can enter their key in the app Settings panel instead.",
-  );
-}
-
-function configErrorResponse(err: ConfigError): Response {
-  const statusMap = {
-    missing_api_key: 401,
-    invalid_api_key: 401,
-    missing_agent_id: 500,
-    upstream_error: 502,
-  } as const;
-  return Response.json(
-    { error: err.message, code: err.code },
-    { status: statusMap[err.code] },
   );
 }
 
@@ -46,114 +34,63 @@ const server = serve({
   hostname,
   routes: {
     "/api/config": {
-      async GET(req) {
-        try {
-          const status = await getConfigStatus(req);
-          return Response.json(status);
-        } catch (error) {
-          console.error("Error reading config:", error);
-          return Response.json({ error: "Failed to read config" }, { status: 500 });
-        }
-      },
-      async POST(req) {
-        return handleSetApiKey(req);
-      },
-      async DELETE() {
-        return handleClearApiKey();
-      },
+      GET: route("load config", (req) => getConfigStatus(req)),
+      POST: route("set API key", (req) => handleSetApiKey(req)),
+      DELETE: route("clear API key", () => handleClearApiKey()),
     },
 
     "/api/agents": {
-      async POST(req) {
-        try {
-          const body = await req.json();
-          const result = await getAgentForMode(body);
-          return Response.json(result);
-        } catch (error) {
-          if (error instanceof ConfigError) return configErrorResponse(error);
-          console.error("Error getting agent:", error);
-          return Response.json(
-            { error: error instanceof Error ? error.message : "Failed to get agent" },
-            { status: 500 },
-          );
-        }
-      },
+      POST: route("get agent", async (req) => {
+        const body = await req.json();
+        return getAgentForMode(body);
+      }),
     },
 
     "/api/agents/:agentId/conversation-token": {
-      async GET(req) {
-        try {
+      GET: route<"/api/agents/:agentId/conversation-token">(
+        "get conversation token",
+        async (req) => {
           const session = await readSession(req);
           const apiKey = resolveApiKey(session);
           const token = await getConversationToken(req.params.agentId, apiKey);
-          return Response.json({ token });
-        } catch (error) {
-          if (error instanceof ConfigError) return configErrorResponse(error);
-          console.error("Error getting conversation token:", error);
-          return Response.json(
-            { error: error instanceof Error ? error.message : "Failed to get conversation token" },
-            { status: 500 },
-          );
-        }
-      },
+          return { token };
+        },
+      ),
     },
 
     "/api/health": {
-      GET() {
-        return Response.json({ status: "ok" });
-      },
+      GET: route("check health", () => ({ status: "ok" })),
     },
 
     "/api/documents": {
-      async GET() {
-        try {
-          const docs = await listDocuments();
-          return Response.json({ documents: docs });
-        } catch (error) {
-          console.error("Error listing documents:", error);
-          return Response.json({ error: "Failed to list documents" }, { status: 500 });
-        }
-      },
-      async POST(req) {
-        try {
-          const formData = await req.formData();
-          const file = formData.get("file") as File | null;
+      GET: route("list documents", async () => {
+        const docs = await listDocuments();
+        return { documents: docs };
+      }),
+      POST: route("upload document", async (req) => {
+        const formData = await req.formData();
+        const file = formData.get("file") as File | null;
 
-          if (!file) {
-            return Response.json({ error: "No file provided" }, { status: 400 });
-          }
-
-          const content = await parseDocumentContent(file);
-          const result = await uploadDocument({ name: file.name, content });
-          return Response.json(result);
-        } catch (error) {
-          console.error("Error uploading document:", error);
-          return Response.json({ error: "Failed to upload document" }, { status: 500 });
+        if (!file) {
+          return Response.json({ error: "No file provided" }, { status: 400 });
         }
-      },
+
+        const content = await parseDocumentContent(file);
+        return uploadDocument({ name: file.name, content });
+      }),
     },
 
     "/api/documents/:id": {
-      async GET(req) {
-        try {
-          const doc = await getDocument(req.params.id);
-          if (!doc) return Response.json({ error: "Document not found" }, { status: 404 });
-          return Response.json(doc);
-        } catch (error) {
-          console.error("Error getting document:", error);
-          return Response.json({ error: "Failed to get document" }, { status: 500 });
-        }
-      },
-      async DELETE(req) {
-        try {
-          const deleted = await deleteDocument(req.params.id);
-          if (!deleted) return Response.json({ error: "Document not found" }, { status: 404 });
-          return Response.json({ success: true });
-        } catch (error) {
-          console.error("Error deleting document:", error);
-          return Response.json({ error: "Failed to delete document" }, { status: 500 });
-        }
-      },
+      GET: route<"/api/documents/:id">("get document", async (req) => {
+        const doc = await getDocument(req.params.id);
+        if (!doc) return Response.json({ error: "Document not found" }, { status: 404 });
+        return doc;
+      }),
+      DELETE: route<"/api/documents/:id">("delete document", async (req) => {
+        const deleted = await deleteDocument(req.params.id);
+        if (!deleted) return Response.json({ error: "Document not found" }, { status: 404 });
+        return { success: true };
+      }),
     },
 
     "/frontend.tsx": async () => {
